@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,13 +14,13 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 
 import io.github.clamentos.grapher.auth.business.contexts.KeyContext;
+import io.github.clamentos.grapher.auth.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.persistence.entities.BlacklistedToken;
 import io.github.clamentos.grapher.auth.persistence.repositories.BlacklistedTokenRepository;
 
 @Service
 public final class TokenService {
 
-    private final Logger logger;
     private final BlacklistedTokenRepository repository;
     private final KeyContext keyContext;
     private final Map<String, Long> blacklist;
@@ -33,7 +31,6 @@ public final class TokenService {
         this.repository = repository;
         this.keyContext = keyContext;
 
-        logger = LogManager.getLogger(this.getClass().getSimpleName());
         blacklist = new ConcurrentHashMap<>();
 
         List<BlacklistedToken> blacklistedTokens = repository.findAll();
@@ -44,16 +41,22 @@ public final class TokenService {
         }
     }
 
-    public boolean isValid(String token) {
+    public void verifyToken(String token) throws AuthenticationException {
 
         if(token != null && token.length() > 0) {
 
             try {
 
-                if(JWSObject.parse(token).verify(keyContext.getJwtVerifier()) == true) {
+                if(JWSObject.parse(token).verify(keyContext.getJwtVerifier()) == false) {
 
-                    String hash = stringify(MessageDigest.getInstance("SHA-256").digest(token.getBytes()));
-                    return(blacklist.containsKey(hash) == false);
+                    throw new AuthenticationException("TokenService.verifyToken -> Could not verify the token.");
+                }
+
+                String hash = stringify(MessageDigest.getInstance("SHA-256").digest(token.getBytes()));
+
+                if(blacklist.containsKey(hash)) {
+
+                    throw new AuthenticationException("TokenService.verifyToken -> Token: " + hash + " is blacklisted.");
                 }
             }
 
@@ -61,12 +64,25 @@ public final class TokenService {
 
                 if(exc instanceof JOSEException) {
 
-                    logger.warn("Could not determine token validity.", exc);
+                    throw new AuthenticationException("TokenService.verifyToken -> Could not verify the token.", exc);
+                }
+
+                if(exc instanceof ParseException) {
+
+                    throw new AuthenticationException("TokenService.verifyToken -> Could not parse the token.", exc);
                 }
             }
         }
 
-        return(false);
+        else {
+
+            throw new AuthenticationException("TokenService.verifyToken -> Null or empty token.");
+        }
+    }
+
+    public void blacklistToken(String token) {
+
+        // TODO: insert into blacklist & db & publish event to rabbit mq
     }
 
     private String stringify(byte[] bytes) {

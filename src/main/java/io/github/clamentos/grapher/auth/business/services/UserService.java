@@ -14,21 +14,33 @@ import com.nimbusds.jose.Payload;
 import io.github.clamentos.grapher.auth.business.contexts.KeyContext;
 
 ///..
-import io.github.clamentos.grapher.auth.exceptions.LoginFailedException;
+import io.github.clamentos.grapher.auth.business.mappers.UserMapper;
 
 ///..
+import io.github.clamentos.grapher.auth.exceptions.AuthenticationException;
+import io.github.clamentos.grapher.auth.exceptions.ValidationException;
+
+///..
+import io.github.clamentos.grapher.auth.persistence.entities.Audit;
 import io.github.clamentos.grapher.auth.persistence.entities.User;
 
 ///..
+import io.github.clamentos.grapher.auth.persistence.repositories.AuditRepository;
 import io.github.clamentos.grapher.auth.persistence.repositories.UserRepository;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.LoginDetails;
+import io.github.clamentos.grapher.auth.utility.Validator;
+
+///..
+import io.github.clamentos.grapher.auth.web.dtos.UserDetails;
+import io.github.clamentos.grapher.auth.web.dtos.UsernamePassword;
 
 ///.
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 
 ///.
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,35 +62,46 @@ public final class UserService {
 
     ///
     private final UserRepository repository;
+    private final AuditRepository auditRepository;
+    private final UserMapper mapper;
     private final KeyContext keyContext;
     private final long tokenDuration;
 
     ///
     @Autowired
-    public UserService(UserRepository repository, KeyContext keyContext, @Value("${grapher-auth.tokenDuration}") long tokenDuration) {
+    public UserService(
+
+        UserRepository repository,
+        AuditRepository auditRepository,
+        UserMapper mapper,
+        KeyContext keyContext,
+        @Value("${grapher-auth.tokenDuration}") long tokenDuration
+    ) {
 
         this.repository = repository;
+        this.auditRepository = auditRepository;
+        this.mapper = mapper;
         this.keyContext = keyContext;
         this.tokenDuration = tokenDuration;
     }
 
     ///
-    public String login(LoginDetails details) throws EntityNotFoundException, LoginFailedException, SecurityException {
+    public String login(UsernamePassword credentials) throws AuthenticationException, EntityNotFoundException, SecurityException {
 
-        User user = repository.findByUsername(details.getUsername());
+        User user = repository.findByUsername(credentials.getUsername());
 
         if(user == null) {
 
             throw new EntityNotFoundException(
 
                 "UserService.login -> " +
-                "No user found with the username $\"" + details.getUsername() + "\"$."
+                "No user found with the username $\"" + credentials.getUsername() + "\"$."
             );
         }
 
-        if(BCrypt.verifyer().verify(details.getPassword().toCharArray(), user.getPassword()).verified == false) {
+        if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), user.getPassword()).verified == false) {
 
-            throw new LoginFailedException("UserService.login");
+            throw new AuthenticationException("UserService.login");
         }
 
         Map<String, Object> claims = new HashMap<>();
@@ -105,6 +128,45 @@ public final class UserService {
         }
 
         return(jwsObject.serialize());
+    }
+
+    ///..
+    @Transactional
+    public void register(UserDetails userDetails) {
+
+        validate(userDetails);
+
+        User user = mapper.map(userDetails);
+
+        user.setId(ThreadLocalRandom.current().nextLong());
+        user.setFlags((short)0);
+        user.setOperations(new ArrayList<>());
+
+        Audit audit = new Audit();
+
+        audit.setTable("USER");
+        audit.setColumns("id,username,password,email,flags");
+        audit.setAction('C');
+        audit.setCreatedAt(System.currentTimeMillis());
+        audit.setCreatedBy("");
+
+        repository.save(user);
+        auditRepository.save(audit);
+    }
+
+    // read users
+    // update user
+    // delete user
+
+    ///.
+    private void validate(UserDetails userDetails) throws ValidationException {
+
+        Validator.requireNull(userDetails.getId(), "id");
+        Validator.requireFilled(userDetails.getUsername(), "username");
+        Validator.requireFilled(userDetails.getPassword(), "password");
+        Validator.requireNotNull(userDetails.getEmail(), "email");
+        Validator.requireNull(userDetails.getFlags(), "flags");
+        Validator.requireNull(userDetails.getOperations(), "operations");
     }
 
     ///

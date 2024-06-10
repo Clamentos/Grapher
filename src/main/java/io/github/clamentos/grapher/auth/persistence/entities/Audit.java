@@ -3,7 +3,10 @@ package io.github.clamentos.grapher.auth.persistence.entities;
 ///
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 ///.
@@ -18,7 +21,10 @@ import lombok.Setter;
 public class Audit {
 
     ///
-    @Id @Column(name = "id")
+    @Id
+    @GeneratedValue(generator = "audit_id_sequence", strategy = GenerationType.SEQUENCE)
+    @SequenceGenerator(name = "audit_id_sequence", allocationSize = 50)
+    @Column(name = "id")
     private long id;
 
     @Column(name = "recordId")
@@ -31,7 +37,7 @@ public class Audit {
     private String columns;
 
     @Column(name = "action")
-    private byte action;
+    private char action;
 
     @Column(name = "created_at")
     private long createdAt;
