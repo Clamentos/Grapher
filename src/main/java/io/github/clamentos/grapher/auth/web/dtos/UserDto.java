@@ -7,6 +7,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 ///.
+import java.util.List;
+
+///.
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,13 +23,16 @@ import lombok.Setter;
 @JsonInclude(Include.NON_NULL)
 
 ///
-public class AuditedObject {
+public final class UserDto extends AuditedObject {
 
     ///
-    private Long createdAt;
-    private Long updatedAt;
-    private String createdBy;
-    private String updatedBy;
+    private Long id;
+    private String username;
+    private String password;
+    private String email;
+    private Short flags;
+
+    private List<OperationDto> operations;
 
     ///
 }

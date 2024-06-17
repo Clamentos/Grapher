@@ -1,10 +1,10 @@
 package io.github.clamentos.grapher.auth.business.mappers;
 
 ///
-import io.github.clamentos.grapher.auth.persistence.entities.User;
+import io.github.clamentos.grapher.auth.persistence.entities.Operation;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.UserDto;
+import io.github.clamentos.grapher.auth.web.dtos.OperationDto;
 
 ///.
 import java.util.List;
@@ -14,26 +14,28 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 ///
-@Mapper(componentModel = "spring", uses = {OperationMapper.class})
+@Mapper(componentModel = "spring")
 
 ///
-public interface UserMapper {
+public interface OperationMapper {
 
     ///
-    @Mapping(target = "operations", ignore = true)
+    @Mapping(target = "userOperations", ignore = true)
     @Mapping(target = "instantAudit", ignore = true)
-    User mapIntoEntity(UserDto userDetails);
+    Operation mapIntoEntity(OperationDto operation);
+
+    ///..
+    List<Operation> mapIntoEntities(List<OperationDto> operations);
 
     ///..
     @Mapping(target = "createdAt", source = "instantAudit.createdAt")
     @Mapping(target = "updatedAt", source = "instantAudit.updatedAt")
     @Mapping(target = "createdBy", source = "instantAudit.createdBy")
     @Mapping(target = "updatedBy", source = "instantAudit.updatedBy")
-    @Mapping(target = "operations", ignore = true)
-    UserDto mapIntoDto(User user);
+    OperationDto mapIntoDto(Operation operation);
 
     ///..
-    List<UserDto> mapIntoDtos(List<User> users);
+    List<OperationDto> mapIntoDtos(List<Operation> operations);
 
     ///
 }

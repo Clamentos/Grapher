@@ -13,11 +13,16 @@ import lombok.Setter;
 @Setter
 
 ///
-public final class UsernamePassword {
+public final class AuditDto {
 
     ///
-    private String username;
-    private String password;
+    private long id;
+    private long recordId;
+    private String tableName;
+    private String columns;
+    private char action;
+    private long createdAt;
+    private String createdBy;
 
     ///
 }

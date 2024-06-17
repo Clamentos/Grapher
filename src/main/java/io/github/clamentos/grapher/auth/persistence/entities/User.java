@@ -6,20 +6,24 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 ///.
 import java.util.List;
 
 ///.
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 ///
+@AllArgsConstructor
+@NoArgsConstructor
 @Getter @Setter
-@Entity @Table(name = "USER")
+@Entity @Table(name = "GRAPHER_USER")
 
 ///
 public class User {
@@ -40,15 +44,22 @@ public class User {
     @Column(name = "flags")
     private short flags;
 
-    ///.
-    @ManyToMany(cascade = { CascadeType.ALL })
-    @JoinTable(
+    ///..
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<UserOperation> operations;
 
-        name = "USER_OPERATION", 
-        joinColumns = { @JoinColumn(name = "user_id") }, 
-        inverseJoinColumns = { @JoinColumn(name = "operation_id") }
-    )
-    private List<Operation> operations;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "instant_audit_id", referencedColumnName = "id")
+    private InstantAudit instantAudit;
+
+    ///
+    public User(long id, String username, String email, short flags) {
+
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.flags = flags;
+    }
 
     ///
 }

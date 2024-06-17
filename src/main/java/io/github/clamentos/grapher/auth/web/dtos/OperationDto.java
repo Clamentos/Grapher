@@ -20,13 +20,11 @@ import lombok.Setter;
 @JsonInclude(Include.NON_NULL)
 
 ///
-public class AuditedObject {
+public final class OperationDto extends AuditedObject {
 
     ///
-    private Long createdAt;
-    private Long updatedAt;
-    private String createdBy;
-    private String updatedBy;
+    private Short id;
+    private String name;
 
     ///
 }

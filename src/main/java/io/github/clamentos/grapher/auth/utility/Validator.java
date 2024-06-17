@@ -5,6 +5,8 @@ import io.github.clamentos.grapher.auth.web.dtos.AuditedObject;
 
 public final class Validator {
 
+    // TODO: exception error codes
+
     public static void requireNull(Object obj, String name) throws ValidationException {
 
         if(obj != null) throw new ValidationException("Validator.requireNull -> The field \"" + name + "\" must be null.");

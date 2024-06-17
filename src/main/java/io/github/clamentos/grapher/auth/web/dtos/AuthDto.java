@@ -13,11 +13,11 @@ import lombok.Setter;
 @Setter
 
 ///
-public final class UsernamePassword {
+public final class AuthDto {
 
     ///
-    private String username;
-    private String password;
+    private UserDto userDetails;
+    private String token;
 
     ///
 }
