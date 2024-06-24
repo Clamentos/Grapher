@@ -4,7 +4,8 @@ package io.github.clamentos.grapher.auth.business.services;
 import io.github.clamentos.grapher.auth.business.mappers.OperationMapper;
 
 ///..
-import io.github.clamentos.grapher.auth.exceptions.ValidationException;
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.Audit;
@@ -17,8 +18,6 @@ import io.github.clamentos.grapher.auth.persistence.repositories.OperationReposi
 
 ///..
 import io.github.clamentos.grapher.auth.utility.AuditUtils;
-import io.github.clamentos.grapher.auth.utility.ErrorCode;
-import io.github.clamentos.grapher.auth.utility.ErrorFactory;
 import io.github.clamentos.grapher.auth.utility.Validator;
 
 ///..
@@ -28,18 +27,25 @@ import io.github.clamentos.grapher.auth.web.dtos.OperationDto;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 
-///..
-import jakarta.transaction.Transactional;
-
 ///.
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+///..
+import java.util.function.Function;
+
+///..
+import java.util.stream.Collectors;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
 
 ///..
 import org.springframework.stereotype.Service;
+
+///..
+import org.springframework.transaction.annotation.Transactional;
 
 ///
 @Service
@@ -63,11 +69,11 @@ public class OperationService {
 
     ///
     @Transactional
-    public void createOperations(String username, List<String> operations) throws EntityExistsException, ValidationException {
+    public void createOperations(String username, List<String> operations) throws EntityExistsException, IllegalArgumentException {
 
-        List<String> alreadyExists = repository.listExists(operations);
+        List<String> existingOperations = repository.doNamesExist(operations);
 
-        if(alreadyExists.size() == 0) {
+        if(existingOperations.size() == 0) {
 
             List<Operation> entities = new ArrayList<>();
             long now = System.currentTimeMillis();
@@ -75,7 +81,7 @@ public class OperationService {
             for(String operation : operations) {
 
                 Validator.requireFilled(operation, "operation");
-                entities.add(new Operation((short)0, operation, null, new InstantAudit(0, now, now, username, username)));
+                entities.add(new Operation((short)0, operation, new InstantAudit(0, now, now, username, username), null, null));
             }
 
             entities = repository.saveAll(entities);
@@ -91,7 +97,7 @@ public class OperationService {
 
         else {
 
-            throw new EntityExistsException(ErrorFactory.generate(ErrorCode.ENTITY_ALREADY_EXISTS, alreadyExists));
+            throw new EntityExistsException(ErrorFactory.generate(ErrorCode.OPERATION_ALREADY_EXISTS, existingOperations));
         }
     }
 
@@ -103,45 +109,81 @@ public class OperationService {
 
     ///..
     @Transactional
-    public void updateOperation(String username, OperationDto operation) throws EntityNotFoundException, ValidationException {
+    public void updateOperations(String username, List<OperationDto> operations)
+    throws EntityExistsException, EntityNotFoundException, IllegalArgumentException {
 
-        Validator.validateAuditedObject(operation);
-        Validator.requireNotNull(operation.getId(), "id");
-        Validator.requireFilled(operation.getName(), "name");
+        List<String> existingOperations = repository.doNamesExist(operations.stream().map(OperationDto::getName).toList());
 
-        Operation entity = repository.findById(operation.getId()).get();
+        if(existingOperations.size() == 0) {
 
-        if(entity != null) {
+            Map<Short, Operation> entities = repository.findAllById(
 
-            entity.setName(operation.getName());
-            entity.getInstantAudit().setUpdatedAt(System.currentTimeMillis());
-            entity.getInstantAudit().setUpdatedBy(username);
+                operations
+                    .stream()
+                    .map(OperationDto::getId).toList()
+            )
+            .stream()
+            .collect(Collectors.toMap(Operation::getId, Function.identity()));
 
-            repository.save(entity);
-            auditRepository.saveAll(AuditUtils.updateOperationAudit(entity));
+            if(entities.size() == operations.size()) {
+
+                List<Operation> modifiedEntities = new ArrayList<>();
+                List<Audit> audits = new ArrayList<>();
+
+                for(OperationDto operation : operations) {
+
+                    Operation entity = entities.get(operation.getId());
+
+                    entity.setName(operation.getName());
+                    entity.getInstantAudit().setUpdatedAt(System.currentTimeMillis());
+                    entity.getInstantAudit().setUpdatedBy(username);
+
+                    modifiedEntities.add(entity);
+                    audits.addAll(AuditUtils.updateOperationAudit(entity));
+                }
+
+                repository.saveAll(modifiedEntities);
+                auditRepository.saveAll(audits);
+            }
+
+            else {
+
+                List<String> namesNotFound = operations.stream().map(OperationDto::getName).toList();
+                namesNotFound.removeAll(entities.values().stream().map(Operation::getName).toList());
+
+                throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.OPERATION_NOT_FOUND, namesNotFound));
+            }
         }
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND, operation.getId()));
+            throw new EntityExistsException(ErrorFactory.generate(ErrorCode.OPERATION_ALREADY_EXISTS, existingOperations));
         }
     }
 
     ///..
     @Transactional
-    public void deleteOperation(String username, short id) throws EntityNotFoundException {
+    public void deleteOperations(String username, List<Short> ids) throws EntityNotFoundException {
 
-        Operation entity = repository.findById(id).get();
+        List<Operation> operations = repository.findAllById(ids);
 
-        if(entity != null) {
+        if(operations.size() == ids.size()) {
 
-            repository.delete(entity);
-            auditRepository.saveAll(AuditUtils.deleteOperationAudit(entity, System.currentTimeMillis(), username));
+            repository.deleteAllById(ids);
+            List<Audit> audits = new ArrayList<>();
+
+            for(Operation entity : operations) {
+
+                audits.addAll(AuditUtils.deleteOperationAudit(entity, System.currentTimeMillis(), username));
+            }
+
+            auditRepository.saveAll(audits);
         }
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND, id));
+            ids.removeAll(operations.stream().map(Operation::getId).toList());
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.OPERATION_NOT_FOUND, ids));
         }
     }
 

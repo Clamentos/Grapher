@@ -5,7 +5,11 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.Payload;
 
 ///.
-import io.github.clamentos.grapher.auth.exceptions.AuthenticationException;
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorFactory;
+
+///..
+import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 
 ///.
 import java.text.ParseException;
@@ -34,15 +38,8 @@ public final class TokenUtils {
 
                     Object claim = payloadMap.get(claimName);
 
-                    if(claim != null) {
-
-                        claims.add(claim);
-                    }
-
-                    else {
-
-                        throw new AuthenticationException(ErrorFactory.generate(ErrorCode.INVALID_TOKEN));
-                    }
+                    if(claim != null) claims.add(claim);
+                    else throw new AuthenticationException(ErrorFactory.generate(ErrorCode.INVALID_TOKEN));
                 }
 
                 return(claims);

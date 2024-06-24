@@ -1,14 +1,14 @@
 package io.github.clamentos.grapher.auth.web.controllers;
 
 ///
-import io.github.clamentos.grapher.auth.business.services.OperationService;
+import io.github.clamentos.grapher.auth.business.services.ApiPermissionService;
 import io.github.clamentos.grapher.auth.business.services.TokenService;
 
 ///..
 import io.github.clamentos.grapher.auth.utility.TokenUtils;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.OperationDto;
+import io.github.clamentos.grapher.auth.web.dtos.ApiPermissionDto;
 
 ///.
 import java.util.List;
@@ -19,7 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 ///..
 import org.springframework.http.ResponseEntity;
 
-///.
+///..
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,18 +32,18 @@ import org.springframework.web.bind.annotation.RestController;
 
 ///
 @RestController
-@RequestMapping(path = "/v1/grapher/operation")
+@RequestMapping(path = "/v1/grapher/permissions")
 
 ///
-public final class OperationController {
+public final class ApiPermissionController {
 
     ///
-    private final OperationService service;
+    private final ApiPermissionService service;
     private final TokenService tokenService;
 
     ///
     @Autowired
-    public OperationController(OperationService service, TokenService tokenService) {
+    public ApiPermissionController(ApiPermissionService service, TokenService tokenService) {
 
         this.service = service;
         this.tokenService = tokenService;
@@ -51,56 +51,55 @@ public final class OperationController {
 
     ///
     @PostMapping(consumes = "application/json")
-    public ResponseEntity<Void> createOperations(
+    public ResponseEntity<Void> createPermissions(
 
         @RequestHeader(name = "Authorization") String token,
-        @RequestBody List<String> operations
+        @RequestBody List<ApiPermissionDto> permissions
     ) {
 
         tokenService.authenticate(token);
-        tokenService.authorize(token, "POST/v1/grapher/operation");
+        tokenService.authorize(token, "POST/v1/grapher/permissions");
 
-        service.createOperations((String)TokenUtils.getClaims(token, "name").get(0), operations);
+        service.createPermissions((String)TokenUtils.getClaims(token, "name").get(0), permissions);
         return(ResponseEntity.ok().build());
     }
 
     ///..
     @GetMapping(produces = "application/json")
-    public ResponseEntity<List<OperationDto>> readOperations(@RequestHeader(name = "Authorization") String token) {
+    public ResponseEntity<List<ApiPermissionDto>> readPermissions(@RequestHeader(name = "Authorization") String token) {
 
         tokenService.authenticate(token);
-        tokenService.authorize(token, "GET/v1/grapher/operation");
+        tokenService.authorize(token, "GET/v1/grapher/permissions");
 
-        return(ResponseEntity.ok(service.readOperations()));
+        return(ResponseEntity.ok(service.readPermissions()));
     }
 
     ///..
     @PatchMapping(consumes = "application/json")
-    public ResponseEntity<Void> updateOperations(
+    public ResponseEntity<Void> updatePermissions(
 
         @RequestHeader(name = "Authorization") String token,
-        @RequestBody List<OperationDto> operations
+        @RequestBody List<ApiPermissionDto> permissions
     ) {
-
         tokenService.authenticate(token);
-        tokenService.authorize(token, "PATCH/v1/grapher/operation");
+        tokenService.authorize(token, "PATCH/v1/grapher/permissions");
 
-        service.updateOperations((String)TokenUtils.getClaims(token, "name").get(0), operations);
+        service.updatePermissions((String)TokenUtils.getClaims(token, "name").get(0), permissions);
         return(ResponseEntity.ok().build());
     }
 
     ///..
     @DeleteMapping
-    public ResponseEntity<Void> deleteOperations(
+    public ResponseEntity<Void> deletePermissions(
 
         @RequestHeader(name = "Authorization") String token,
-        @RequestParam(name = "ids") List<Short> ids
+        @RequestParam(name = "ids", required = true) List<Long> ids
     ) {
 
         tokenService.authenticate(token);
-        tokenService.authorize(token, "DELETE/v1/grapher/operation");
+        tokenService.authorize(token, "DELETE/v1/grapher/permissions");
 
-        service.deleteOperations((String)TokenUtils.getClaims(token, "name").get(0), ids);
+        service.deletePermissions(token, ids);
         return(ResponseEntity.ok().build());
     }
 

@@ -41,7 +41,7 @@ CREATE TABLE GRAPHER_USER (
     password            TEXT NOT NULL,
     email               TEXT NOT NULL,
     flags               SMALLINT NOT NULL,
-    instant_audit_id    BIGINT NOT NULL,
+    instant_audit_id    BIGINT NOT NULL UNIQUE,
 
     CONSTRAINT instant_audit_id_fk FOREIGN KEY(instant_audit_id) REFERENCES INSTANT_AUDIT(id) ON DELETE RESTRICT
 );
@@ -51,7 +51,7 @@ CREATE TABLE OPERATION (
 
     id                  SMALLSERIAL PRIMARY KEY,
     name                TEXT NOT NULL UNIQUE,
-    instant_audit_id    BIGINT NOT NULL,
+    instant_audit_id    BIGINT NOT NULL UNIQUE,
 
     CONSTRAINT instant_audit_id_fk FOREIGN KEY(instant_audit_id) REFERENCES INSTANT_AUDIT(id) ON DELETE RESTRICT
 );
@@ -64,7 +64,21 @@ CREATE TABLE USER_OPERATION (
     operation_id        SMALLINT NOT NULL,
 
     CONSTRAINT user_id_fk FOREIGN KEY(user_id) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE,
-    CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE
+    CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE,
+    UNIQUE(user_id, operation_id)
+);
+
+---..
+CREATE TABLE API_PERMISSION (
+
+    id                  BIGSERIAL PRIMARY KEY,
+    path                TEXT NOT NULL,
+    is_optional         BOOLEAN NOT NULL,
+    instant_audit_id    BIGINT NOT NULL UNIQUE,
+    operation_id        SMALLINT NOT NULL,
+
+    CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE,
+    UNIQUE(path, operation_id)
 );
 
 ---

@@ -1,4 +1,4 @@
-package io.github.clamentos.grapher.auth.exceptions;
+package io.github.clamentos.grapher.auth.error.exceptions;
 
 ///
 public final class AuthorizationException extends SecurityException {

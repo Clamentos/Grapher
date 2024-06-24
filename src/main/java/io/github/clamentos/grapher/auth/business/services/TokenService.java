@@ -8,21 +8,25 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.Payload;
 
 ///.
+import io.github.clamentos.grapher.auth.business.contexts.ApiPermissionContext;
 import io.github.clamentos.grapher.auth.business.contexts.KeyContext;
 
-///.
-import io.github.clamentos.grapher.auth.exceptions.AuthenticationException;
-import io.github.clamentos.grapher.auth.exceptions.AuthorizationException;
+///..
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
-///.
+///..
+import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
+import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.entities.BlacklistedToken;
 
-///.
+///..
 import io.github.clamentos.grapher.auth.persistence.repositories.BlacklistedTokenRepository;
 
-///.
-import io.github.clamentos.grapher.auth.utility.ErrorCode;
-import io.github.clamentos.grapher.auth.utility.ErrorFactory;
+///..
+import io.github.clamentos.grapher.auth.utility.Permission;
 
 ///.
 import jakarta.transaction.Transactional;
@@ -63,23 +67,24 @@ public class TokenService {
     private final Logger logger;
     private final BlacklistedTokenRepository repository;
     private final KeyContext keyContext;
+    private final ApiPermissionContext apiPermissionContext;
 
     ///..
     private final Map<String, Long> blacklist;
 
     ///
     @Autowired
-    public TokenService(BlacklistedTokenRepository repository, KeyContext keyContext) {
+    public TokenService(BlacklistedTokenRepository repository, KeyContext keyContext, ApiPermissionContext apiPermissionContext) {
 
         logger = LogManager.getLogger(this.getClass().getSimpleName());
 
         this.repository = repository;
         this.keyContext = keyContext;
+        this.apiPermissionContext = apiPermissionContext;
 
         blacklist = new ConcurrentHashMap<>();
-        List<BlacklistedToken> blacklistedTokens = repository.findAll();
 
-        for(BlacklistedToken blacklistedToken : blacklistedTokens) {
+        for(BlacklistedToken blacklistedToken : repository.findAll()) {
 
             blacklist.put(blacklistedToken.getHash(), blacklistedToken.getExpiresAt());
         }
@@ -103,7 +108,7 @@ public class TokenService {
 
         return(jwsObject.serialize());
     }
-    
+
     ///..
     public void authenticate(String token) throws AuthenticationException {
 
@@ -137,35 +142,35 @@ public class TokenService {
 
     ///..
     @SuppressWarnings("unchecked")
-    public boolean[] authorize(String token, String... operations) throws AuthorizationException {
+    public boolean[] authorize(String token, String path) throws AuthorizationException {
 
         try {
 
-            List<String> userOps = (List<String>)JWSObject.parse(token).getPayload().toJSONObject().get("operations");
+            Set<Short> userOpIds = new HashSet<>((List<Short>)JWSObject.parse(token).getPayload().toJSONObject().get("operations"));
 
-            if(userOps == null) {
+            if(userOpIds.size() == 0) {
 
-                throw new AuthorizationException(ErrorFactory.generate(ErrorCode.NO_MATCHING_OPERATION));
+                throw new AuthorizationException(ErrorFactory.generate(ErrorCode.NOT_ENOUGH_PRIVILEGES));
             }
 
-            boolean[] checked = new boolean[operations.length];
-            Set<String> userOpsSet = new HashSet<>(userOps);
+            List<Permission> permissions = apiPermissionContext.getPermissions(path);
+            boolean[] checked = new boolean[permissions.size()];
 
-            for(int i = 0; i < operations.length; i++) {
+            for(int i = 0; i < permissions.size(); i++) {
 
-                if(operations[i].charAt(0) == '#') {
+                if(userOpIds.contains(permissions.get(i).getOperationId())) {
 
-                    checked[i] = userOpsSet.contains(operations[i]);
+                    checked[i] = true;
                 }
 
                 else {
 
-                    if(userOpsSet.contains(operations[i]) == false) {
+                    if(permissions.get(i).isOptional() == false) {
 
-                        throw new AuthorizationException(ErrorFactory.generate(ErrorCode.NO_MATCHING_OPERATION));
+                        throw new AuthorizationException(ErrorFactory.generate(ErrorCode.NOT_ENOUGH_PRIVILEGES));
                     }
 
-                    checked[i] = true;
+                    checked[i] = false;
                 }
             }
 
@@ -191,7 +196,7 @@ public class TokenService {
             repository.save(new BlacklistedToken(hash, expiration));
             blacklist.put(hash, expiration);
 
-            // TODO: publish event to rabbit mq
+            // TODO: publish event to rabbit mq to update other caches
         }
 
         catch(NoSuchAlgorithmException | ParseException exc) {

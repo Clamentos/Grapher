@@ -5,11 +5,13 @@ import io.github.clamentos.grapher.auth.business.services.TokenService;
 import io.github.clamentos.grapher.auth.business.services.UserService;
 
 ///..
-import io.github.clamentos.grapher.auth.exceptions.AuthorizationException;
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
 ///..
-import io.github.clamentos.grapher.auth.utility.ErrorCode;
-import io.github.clamentos.grapher.auth.utility.ErrorFactory;
+import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+
+///..
 import io.github.clamentos.grapher.auth.utility.TokenUtils;
 
 ///..
@@ -40,12 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 ///
 @RestController
-@RequestMapping(
-
-    path = "/v1/grapher/user",
-    consumes = "application/json",
-    produces = "application/json"
-)
+@RequestMapping(path = "/v1/grapher/user")
 
 ///
 public final class UserController {
@@ -63,7 +60,7 @@ public final class UserController {
     }
 
     ///
-    @PostMapping(path = "/register")
+    @PostMapping(path = "/register", consumes = "application/json")
     public ResponseEntity<Void> register(@RequestBody UserDto user) {
 
         service.register(user);
@@ -71,7 +68,7 @@ public final class UserController {
     }
 
     ///..
-    @PostMapping(path = "/login")
+    @PostMapping(path = "/login", consumes = "application/json", produces = "application/json")
     public ResponseEntity<AuthDto> login(@RequestBody UsernamePassword credentials) {
 
         return(ResponseEntity.ok(service.login(credentials)));
@@ -81,14 +78,17 @@ public final class UserController {
     @DeleteMapping(path = "/logout")
     public ResponseEntity<Void> logout(@RequestHeader(name = "Authorization") String token) {
 
+        tokenService.authenticate(token);
         tokenService.blacklistToken(token);
+
         return(ResponseEntity.ok().build());
     }
 
     ///..
-    @GetMapping
+    @GetMapping(produces = "application/json")
     public ResponseEntity<List<UserDto>> getUsers(
 
+        @RequestHeader(name = "Authorization") String token,
         @RequestParam(name = "username", required = false, defaultValue = "") String username,
         @RequestParam(name = "email", required = false, defaultValue = "") String email,
         @RequestParam(name = "createdAtRange", required = false, defaultValue = "") String createdAtRange,
@@ -96,12 +96,24 @@ public final class UserController {
         @RequestParam(name = "operations", required = false, defaultValue = "") String operations
     ) {
 
-        // TODO: filters
-        return null;
+        tokenService.authenticate(token);
+        tokenService.authorize(token, "GET/v1/grapher/user");
+
+        return(ResponseEntity.ok(service.getAllUsers(username, email, createdAtRange, updatedAtRange, operations)));
     }
 
     ///..
-    @PatchMapping
+    @GetMapping(value = "/{id}", produces = "application/json")
+    public ResponseEntity<UserDto> getUser(@RequestHeader(name = "Authorization") String token, @PathVariable(name = "id") short id) {
+
+        tokenService.authenticate(token);
+        tokenService.authorize(token, "GET/v1/grapher/user/{id}");
+
+        return(ResponseEntity.ok(service.getUserById(id)));
+    }
+
+    ///..
+    @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updateUser(
 
         @RequestHeader(name = "Authorization") String token,
@@ -110,7 +122,7 @@ public final class UserController {
 
         tokenService.authenticate(token);
 
-        boolean canModifyOthers = tokenService.authorize(token, "U-USER-SELF", "#U-USER-OTHER")[1];
+        boolean canModifyOthers = tokenService.authorize(token, "PATCH/v1/grapher/user")[1];
         List<Object> claims = TokenUtils.getClaims(token, "name", "sub");
 
         service.updateUser((String)claims.get(0), (long)claims.get(1), user, canModifyOthers);
@@ -127,7 +139,7 @@ public final class UserController {
 
         tokenService.authenticate(token);
 
-        boolean canDeleteOthers = tokenService.authorize(token, "D-USER-SELF", "#D-USER-OTHER")[1];
+        boolean canDeleteOthers = tokenService.authorize(token, "DELETE/v1/grapher/user/{id}")[1];
         List<Object> claims = TokenUtils.getClaims(token, "name", "sub");
         long requesterId = (long)claims.get(1);
 

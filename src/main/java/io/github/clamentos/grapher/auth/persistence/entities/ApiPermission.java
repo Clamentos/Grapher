@@ -8,13 +8,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
-
-///.
-import java.util.List;
 
 ///.
 import lombok.AllArgsConstructor;
@@ -26,30 +23,30 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter @Setter
-@Entity @Table(name = "OPERATION")
+@Entity @Table(name = "API_PERMISSION")
 
 ///
-public class Operation {
+public class ApiPermission {
 
     ///
     @Id @Column(name = "id")
-    @GeneratedValue(generator = "operation_id_seq", strategy = GenerationType.SEQUENCE)
-    @SequenceGenerator(name = "operation_id_seq", sequenceName = "operation_id_seq", allocationSize = 1)
-    private short id;
+    @GeneratedValue(generator = "api_permission_id_seq", strategy = GenerationType.SEQUENCE)
+    @SequenceGenerator(name = "api_permission_id_seq", sequenceName = "api_permission_id_seq", allocationSize = 1)
+    private long id;
 
-    @Column(name = "name")
-    private String name;
+    @Column(name = "path")
+    private String path;
+
+    @Column(name = "is_optional")
+    private boolean isOptional;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "instant_audit_id", referencedColumnName = "id")
     private InstantAudit instantAudit;
 
-    ///..
-    @OneToMany(mappedBy = "operation", cascade = CascadeType.ALL)
-    private List<UserOperation> userOperations;
-
-    @OneToMany(mappedBy = "operation", cascade = CascadeType.ALL)
-    private List<ApiPermission> apiPermissions;
+    @ManyToOne
+    @JoinColumn(name = "operation_id")
+    private Operation operation;
 
     ///
 }

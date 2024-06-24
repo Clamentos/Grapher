@@ -8,9 +8,12 @@ import io.github.clamentos.grapher.auth.business.mappers.OperationMapper;
 import io.github.clamentos.grapher.auth.business.mappers.UserMapper;
 
 ///..
-import io.github.clamentos.grapher.auth.exceptions.AuthenticationException;
-import io.github.clamentos.grapher.auth.exceptions.AuthorizationException;
-import io.github.clamentos.grapher.auth.exceptions.ValidationException;
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorFactory;
+
+///..
+import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
+import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.InstantAudit;
@@ -24,9 +27,10 @@ import io.github.clamentos.grapher.auth.persistence.repositories.OperationReposi
 import io.github.clamentos.grapher.auth.persistence.repositories.UserRepository;
 
 ///..
+import io.github.clamentos.grapher.auth.persistence.specifications.UserSpecification;
+
+///..
 import io.github.clamentos.grapher.auth.utility.AuditUtils;
-import io.github.clamentos.grapher.auth.utility.ErrorCode;
-import io.github.clamentos.grapher.auth.utility.ErrorFactory;
 import io.github.clamentos.grapher.auth.utility.Validator;
 
 ///..
@@ -40,9 +44,6 @@ import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 
 ///..
-import jakarta.transaction.Transactional;
-
-///.
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 ///..
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 ///
 @Service
@@ -113,7 +115,7 @@ public class UserService {
 
     ///
     @Transactional
-    public void register(UserDto userDetails) throws ValidationException {
+    public void register(UserDto userDetails) throws EntityExistsException, IllegalArgumentException {
 
         Validator.validateAuditedObject(userDetails);
         Validator.requireNull(userDetails.getId(), "id");
@@ -123,81 +125,104 @@ public class UserService {
         Validator.requireNull(userDetails.getFlags(), "flags");
         Validator.requireNull(userDetails.getOperations(), "operations");
 
-        User user = mapper.mapIntoEntity(userDetails);
-        long now = System.currentTimeMillis();
+        if(repository.existsByUsername(userDetails.getUsername()) == false) {
 
-        user.setPassword(BCrypt.withDefaults().hashToString(effort, userDetails.getPassword().toCharArray()));
-        user.setInstantAudit(new InstantAudit(0, now, now, userDetails.getUsername(), userDetails.getUsername()));
+            User user = mapper.mapIntoEntity(userDetails);
+            long now = System.currentTimeMillis();
 
-        boolean inserted = false;
+            user.setPassword(BCrypt.withDefaults().hashToString(effort, userDetails.getPassword().toCharArray()));
+            user.setInstantAudit(new InstantAudit(0, now, now, userDetails.getUsername(), userDetails.getUsername()));
 
-        while(inserted == false) {
+            boolean inserted = false;
 
-            try {
+            while(inserted == false) {
 
-                user.setId(ThreadLocalRandom.current().nextLong());
-                user = repository.save(user);
+                try {
 
-                inserted = true;
+                    user.setId(ThreadLocalRandom.current().nextLong());
+                    user = repository.save(user);
+
+                    inserted = true;
+                }
+
+                catch(EntityExistsException exc) {
+
+                    logger.warn("Insert collision for id: {}, retrying...", user.getId());
+                }
             }
 
-            catch(EntityExistsException exc) {
-
-                logger.warn("Insert collision for id: {}, retrying...", user.getId());
-            }
+            auditRepository.saveAll(AuditUtils.insertUserAudit(user));
         }
 
-        auditRepository.saveAll(AuditUtils.insertUserAudit(user));
+        else {
+
+            throw new EntityExistsException(ErrorFactory.generate(ErrorCode.USER_ALREADY_EXISTS, userDetails.getUsername()));
+        }
     }
 
     ///..
     @Transactional
     public AuthDto login(UsernamePassword credentials) throws AuthenticationException, EntityNotFoundException, SecurityException {
 
-        User entity = repository.findFullByUsername(credentials.getUsername());
+        User entity = repository.findByUsername(credentials.getUsername());
 
-        if(entity == null) {
+        if(entity != null) {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND, credentials.getUsername()));
+            if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), entity.getPassword()).verified == false) {
+
+                throw new AuthenticationException(ErrorFactory.generate(ErrorCode.WRONG_PASSWORD));
+            }
+
+            List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
+            UserDto user = mapper.mapIntoDto(entity);
+
+            user.setPassword(null);
+            user.setOperations(operations);
+
+            Map<String, Object> claims = new HashMap<>();
+            long now = System.currentTimeMillis();
+
+            claims.put("jti", ThreadLocalRandom.current().nextLong());
+            claims.put("iat", now);
+            claims.put("exp", now + tokenDuration);
+            claims.put("sub", user.getId());
+            claims.put("name", user.getUsername());
+            claims.put("flags", user.getFlags());
+            claims.put("operations", user.getOperations().stream().map(OperationDto::getId).toList());
+
+            String token = tokenService.generate(claims);
+            return(new AuthDto(user, token));
         }
 
-        if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), entity.getPassword()).verified == false) {
+        else {
 
-            throw new AuthenticationException(ErrorFactory.generate(ErrorCode.WRONG_PASSWORD));
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, credentials.getUsername()));
         }
-
-        List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
-        UserDto user = mapper.mapIntoDto(entity);
-
-        user.setPassword(null);
-        user.setOperations(operations);
-
-        Map<String, Object> claims = new HashMap<>();
-        long now = System.currentTimeMillis();
-
-        claims.put("jti", ThreadLocalRandom.current().nextLong());
-        claims.put("iat", now);
-        claims.put("exp", now + tokenDuration);
-        claims.put("sub", user.getId());
-        claims.put("name", user.getUsername());
-        claims.put("flags", user.getFlags());
-        claims.put("operations", user.getOperations());
-
-        String token = tokenService.generate(claims);
-        return(new AuthDto(user, token));
     }
 
     ///..
-    public List<UserDto> getAllUsers() {
+    public List<UserDto> getAllUsers(String username, String email, String createdAtRange, String updatedAtRange, String operations) {
 
-        return(mapper.mapIntoDtos(repository.findAll()));
+        String[] createdSplits = createdAtRange.split(",");
+        String[] updatedSplits = updatedAtRange.split(",");
+
+        return(mapper.mapIntoDtos(repository.findAll(new UserSpecification(
+
+            username,
+            email,
+            createdSplits.length == 1 ? Long.parseLong(createdSplits[0]) : null,
+            createdSplits.length == 2 ? Long.parseLong(createdSplits[1]) : null,
+            updatedSplits.length == 1 ? Long.parseLong(updatedSplits[0]) : null,
+            updatedSplits.length == 2 ? Long.parseLong(updatedSplits[1]) : null,
+            operations.split(",")
+        ))));
     }
 
     ///..
     @Transactional
-    public UserDto getUserById(long id) {
+    public UserDto getUserById(long id) throws EntityNotFoundException {
 
-        User entity = repository.findFullById(id);
+        User entity = repository.findById(id);
 
         if(entity != null) {
 
@@ -210,18 +235,21 @@ public class UserService {
             return(user);
         }
 
-        throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND));
+        else {
+
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
+        }
     }
 
     ///..
     @Transactional
     public void updateUser(String username, long requestingUserId, UserDto user, boolean canModifyOthers)
-    throws AuthorizationException, EntityExistsException, EntityNotFoundException, ValidationException {
+    throws AuthorizationException, EntityExistsException, EntityNotFoundException, IllegalArgumentException {
 
         Validator.validateAuditedObject(user);
         Validator.requireNotNull(user.getId(), "id");
 
-        User entity = repository.findById(user.getId()).get();
+        User entity = repository.findById((long)user.getId());
 
         if(entity != null) {
 
@@ -233,7 +261,7 @@ public class UserService {
 
                     if(repository.existsByUsername(user.getUsername())) {
 
-                        throw new EntityExistsException(ErrorFactory.generate(ErrorCode.ENTITY_ALREADY_EXISTS, user.getUsername()));
+                        throw new EntityExistsException(ErrorFactory.generate(ErrorCode.USER_ALREADY_EXISTS, user.getUsername()));
                     }
 
                     entity.setUsername(user.getUsername());
@@ -264,7 +292,7 @@ public class UserService {
 
                     if(entity.getId() != requestingUserId ) {
 
-                        List<Operation> operations = operationRepository.findAllByNames(
+                        List<Operation> operations = operationRepository.findAllByName(
 
                             user.getOperations()
                                 .stream()
@@ -304,7 +332,7 @@ public class UserService {
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND));
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
         }
     }
 
@@ -312,7 +340,7 @@ public class UserService {
     @Transactional
     public void deleteUser(String username, long id) throws EntityNotFoundException {
 
-        User entity = repository.findById(id).get();
+        User entity = repository.findByIdMinimal(id);
 
         if(entity != null) {
 
@@ -322,7 +350,7 @@ public class UserService {
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.ENTITY_NOT_FOUND));
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
         }
     }
 

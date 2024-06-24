@@ -33,6 +33,7 @@ import java.security.spec.X509EncodedKeySpec;
 import lombok.Getter;
 
 ///.
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 ///..
@@ -54,6 +55,7 @@ public final class KeyContext {
     private final JWSVerifier jwtVerifier;
 
     ///
+    @Autowired
     public KeyContext(
 
         @Value("${grapher-auth.privateKeyPath}") String privatePath,

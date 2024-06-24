@@ -32,6 +32,7 @@ public final class UserDto extends AuditedObject {
     private String email;
     private Short flags;
 
+    ///..
     private List<OperationDto> operations;
 
     ///

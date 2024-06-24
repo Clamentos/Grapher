@@ -20,14 +20,6 @@ import org.mapstruct.Mapping;
 public interface OperationMapper {
 
     ///
-    @Mapping(target = "userOperations", ignore = true)
-    @Mapping(target = "instantAudit", ignore = true)
-    Operation mapIntoEntity(OperationDto operation);
-
-    ///..
-    List<Operation> mapIntoEntities(List<OperationDto> operations);
-
-    ///..
     @Mapping(target = "createdAt", source = "instantAudit.createdAt")
     @Mapping(target = "updatedAt", source = "instantAudit.updatedAt")
     @Mapping(target = "createdBy", source = "instantAudit.createdBy")
