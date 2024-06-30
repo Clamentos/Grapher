@@ -40,7 +40,7 @@ public final class ApiPermissionContext {
         this.repository = repository;
         apiPermissions = new ConcurrentHashMap<>();
 
-        fill(apiPermissions, repository);
+        fill(apiPermissions, repository, false);
     }
 
     ///
@@ -52,24 +52,23 @@ public final class ApiPermissionContext {
     ///..
     public void reload() {
 
-        fill(apiPermissions, repository);
+        fill(apiPermissions, repository, true);
         // TODO: publist event to rabbitmq saying that all services must "pull" the new api permission list
     }
 
     ///.
-    private static void fill(Map<String, List<Permission>> apiPermissions, ApiPermissionRepository repository) {
+    private static void fill(Map<String, List<Permission>> apiPermissions, ApiPermissionRepository repository, boolean overwrite) {
+
+        // TODO: overwrite
 
         for(ApiPermission permission : repository.findAll()) {
 
             apiPermissions.compute(permission.getPath(), (k, v) -> {
 
-                if(v != null) {
+                List<Permission> values = v != null ? v : new ArrayList<>();
+                values.add(new Permission(permission.getOperation().getId(), permission.isOptional()));
 
-                    v.add(new Permission(permission.getOperation().getId(), permission.isOptional()));
-                    return(v);
-                }
-        
-                return(new ArrayList<>());
+                return(values);
             });
         }
     }

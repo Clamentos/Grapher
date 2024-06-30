@@ -1,9 +1,6 @@
 package io.github.clamentos.grapher.auth.web.controllers;
 
 ///
-import io.github.clamentos.grapher.auth.business.services.TokenService;
-
-///.
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.RuntimeMXBean;
@@ -14,14 +11,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 ///.
-import org.springframework.beans.factory.annotation.Autowired;
-
-///..
 import org.springframework.http.ResponseEntity;
 
 ///.
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,19 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 public final class ObservabilityController {
 
     ///
-    private final TokenService tokenService;
-
-    ///..
     private final Runtime runtime;
     private final MemoryMXBean memoryBean;
     private final RuntimeMXBean runtimeBean;
     private final ThreadMXBean threadBean;
 
     ///
-    @Autowired
-    public ObservabilityController(TokenService tokenService) {
-
-        this.tokenService = tokenService;
+    public ObservabilityController() {
 
         runtime = Runtime.getRuntime();
         memoryBean = ManagementFactory.getMemoryMXBean();
@@ -62,10 +49,7 @@ public final class ObservabilityController {
 
     ///..
     @GetMapping(path = "/status", produces = "application/json")
-    public ResponseEntity<Map<String, Object>> getStatus(@RequestHeader(name = "Authorization") String token) {
-
-        tokenService.authenticate(token);
-        tokenService.authorize(token, "GET/v1/grapher/auth/observability/status");
+    public ResponseEntity<Map<String, Object>> getStatus() {
 
         Map<String, Object> status = new HashMap<>();
 

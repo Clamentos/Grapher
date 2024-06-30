@@ -16,6 +16,7 @@ public final class ErrorFactory {
             builder.append(arg).append(Constants.ERROR_ARG_SEPARATOR);
         }
 
+        builder.deleteCharAt(builder.length() - 1);
         return(builder.toString());
     }
 
@@ -29,6 +30,7 @@ public final class ErrorFactory {
             builder.append(arg.toString()).append(Constants.ERROR_ARG_SEPARATOR);
         }
 
+        builder.deleteCharAt(builder.length() - 1);
         return(builder.toString());
     }
 

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Repository;
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     ///
-    @Query(value = "SELECT COUNT(1) FROM User AS u WHERE u.username = ?1")
+    @Query(value = "SELECT COUNT(1) > 0 FROM User AS u WHERE u.username = ?1")
     boolean existsByUsername(String username);
 
     ///..

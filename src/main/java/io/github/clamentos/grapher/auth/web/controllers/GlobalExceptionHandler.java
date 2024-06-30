@@ -8,6 +8,9 @@ import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
+import io.github.clamentos.grapher.auth.utility.Constants;
+
+///..
 import io.github.clamentos.grapher.auth.web.dtos.ErrorDto;
 
 ///.
@@ -86,14 +89,18 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
         if(exc.getMessage() != null) {
 
-            splits = exc.getMessage().split(">");
+            splits = exc.getMessage().split(Constants.ERROR_CODE_SEPARATOR);
 
             if(splits.length > 0) {
 
                 if(ErrorCode.isValidErrorCode(splits[0])) {
 
                     errorCode = splits[0];
-                    arguments = splits[1].split("|");
+
+                    if(splits.length > 1) {
+
+                        arguments = splits[1].split(Constants.ERROR_ARG_SEPARATOR);
+                    }
                 }
             }
         }

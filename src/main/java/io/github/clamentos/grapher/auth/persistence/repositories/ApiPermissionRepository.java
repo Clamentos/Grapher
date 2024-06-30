@@ -32,5 +32,14 @@ public interface ApiPermissionRepository extends JpaRepository<ApiPermission, Lo
     @Query(value = "SELECT p FROM ApiPermission AS p INNER JOIN FETCH p.operation AS o")
     List<ApiPermission> findAllMinimal();
 
+    ///..
+    @Override
+    @Query(
+
+        value = "SELECT p FROM ApiPermission AS p INNER JOIN FETCH p.instantAudit AS ia INNER JOIN FETCH p.operation AS o " +
+                "WHERE p.id IN ?1"
+    )
+    List<ApiPermission> findAllById(Iterable<Long> ids);
+
     ///
 }

@@ -16,8 +16,8 @@ import lombok.Setter;
 public class AuditedObject {
 
     ///
-    private long createdAt;
-    private long updatedAt;
+    private Long createdAt;
+    private Long updatedAt;
     private String createdBy;
     private String updatedBy;
 

@@ -146,7 +146,7 @@ public class TokenService {
 
         try {
 
-            Set<Short> userOpIds = new HashSet<>((List<Short>)JWSObject.parse(token).getPayload().toJSONObject().get("operations"));
+            Set<Long> userOpIds = new HashSet<>((List<Long>)JWSObject.parse(token).getPayload().toJSONObject().get("operations"));
 
             if(userOpIds.size() == 0) {
 
@@ -154,11 +154,17 @@ public class TokenService {
             }
 
             List<Permission> permissions = apiPermissionContext.getPermissions(path);
+
+            if(permissions == null) {
+
+                throw new AuthorizationException(ErrorFactory.generate(ErrorCode.ILLEGAL_ACTION));
+            }
+
             boolean[] checked = new boolean[permissions.size()];
 
             for(int i = 0; i < permissions.size(); i++) {
 
-                if(userOpIds.contains(permissions.get(i).getOperationId())) {
+                if(userOpIds.contains(Long.valueOf(permissions.get(i).getOperationId()))) {
 
                     checked[i] = true;
                 }

@@ -28,25 +28,35 @@ public enum ErrorCode {
     PERMISSION_NOT_FOUND("EC009"),
     PERMISSION_ALREADY_EXISTS("EC010"),
 
-    VALIDATOR_REQUIRE_NULL("EC011"),
-    VALIDATOR_REQUIRE_NOT_NULL("EC012"),
-    VALIDATOR_REQUIRE_FILLED("EC013");
+    BAD_FORMAT("EC011"),
+    VALIDATOR_REQUIRE_NULL("EC012"),
+    VALIDATOR_REQUIRE_NOT_NULL("EC013"),
+    VALIDATOR_REQUIRE_FILLED("EC014");
 
     ///
     private final String value;
 
     ///
-    public static boolean isValidErrorCode(String name) {
+    public static boolean isValidErrorCode(String code) {
 
-        try{
+        switch(code) {
 
-            Enum.valueOf(ErrorCode.class, name);
-            return(true);
-        }
+            case "EC000": return(true);
+            case "EC001": return(true);
+            case "EC002": return(true);
+            case "EC003": return(true);
+            case "EC004": return(true);
+            case "EC005": return(true);
+            case "EC006": return(true);
+            case "EC007": return(true);
+            case "EC008": return(true);
+            case "EC009": return(true);
+            case "EC010": return(true);
+            case "EC011": return(true);
+            case "EC012": return(true);
+            case "EC013": return(true);
 
-        catch(IllegalArgumentException exc) {
-
-            return(false);
+            default: return(false);
         }
     }
 

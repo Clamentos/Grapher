@@ -62,6 +62,8 @@ import org.springframework.beans.factory.annotation.Value;
 
 ///..
 import org.springframework.stereotype.Service;
+
+///..
 import org.springframework.transaction.annotation.Transactional;
 
 ///
@@ -162,7 +164,11 @@ public class UserService {
 
     ///..
     @Transactional
-    public AuthDto login(UsernamePassword credentials) throws AuthenticationException, EntityNotFoundException, SecurityException {
+    public AuthDto login(UsernamePassword credentials)
+    throws AuthenticationException, EntityNotFoundException, IllegalArgumentException, SecurityException {
+
+        Validator.requireFilled(credentials.getUsername(), "username");
+        Validator.requireFilled(credentials.getPassword(), "password");
 
         User entity = repository.findByUsername(credentials.getUsername());
 
@@ -201,20 +207,25 @@ public class UserService {
     }
 
     ///..
+    public void logout(String token) {
+
+        tokenService.blacklistToken(token);
+    }
+
+    ///..
     public List<UserDto> getAllUsers(String username, String email, String createdAtRange, String updatedAtRange, String operations) {
 
-        String[] createdSplits = createdAtRange.split(",");
-        String[] updatedSplits = updatedAtRange.split(",");
+        List<Long> dates = parse(createdAtRange, updatedAtRange);
 
         return(mapper.mapIntoDtos(repository.findAll(new UserSpecification(
 
             username,
             email,
-            createdSplits.length == 1 ? Long.parseLong(createdSplits[0]) : null,
-            createdSplits.length == 2 ? Long.parseLong(createdSplits[1]) : null,
-            updatedSplits.length == 1 ? Long.parseLong(updatedSplits[0]) : null,
-            updatedSplits.length == 2 ? Long.parseLong(updatedSplits[1]) : null,
-            operations.split(",")
+            dates.get(0),
+            dates.get(1),
+            dates.get(2),
+            dates.get(3),
+            operations.equals("") ? null : operations.split(",")
         ))));
     }
 
@@ -332,7 +343,7 @@ public class UserService {
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, Long.toString(user.getId())));
         }
     }
 
@@ -350,8 +361,49 @@ public class UserService {
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
+            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, Long.toString(id)));
         }
+    }
+
+    ///.
+    private List<Long> parse(String createdAtRange, String updatedAtRange) {
+
+        List<Long> dates = new ArrayList<>();
+
+        dates.addAll(parseSingle(createdAtRange));
+        dates.addAll(parseSingle(updatedAtRange));
+
+        return(dates);
+    }
+
+    ///..
+    private List<Long> parseSingle(String dateRange) throws IllegalArgumentException {
+
+        List<Long> dates = new ArrayList<>();
+
+        if(dateRange.equals("")) {
+
+            dates.add(null);
+            dates.add(null);
+        }
+
+        else {
+
+            String[] splits = dateRange.split(",");
+
+            try {
+
+                if(splits.length == 1) dates.add(Long.parseLong(splits[1]));
+                if(splits.length == 2) dates.add(Long.parseLong(splits[2]));
+            }
+
+            catch(NumberFormatException exc) {
+
+                throw new IllegalArgumentException(ErrorFactory.generate(ErrorCode.BAD_FORMAT, splits[1]));
+            }
+        }
+
+        return(dates);
     }
 
     ///

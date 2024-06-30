@@ -70,17 +70,13 @@ public final class RequestBuilder {
     }
 
     ///
-    public void reset() {
+    public RequestBuilder request(HttpMethod method, String path) throws TestAbortedException {
 
         builder = null;
         response = null;
         expectedStatus = 0;
         expectedHeaders = null;
         expectedContent = null;
-    }
-
-    ///..
-    public RequestBuilder request(HttpMethod method, String path) throws TestAbortedException {
 
         Assumptions.assumeFalse(skipFlag , "Previous test(s) failed, aborting this test...");
         builder = MockMvcRequestBuilders.request(method, baseUrl + path);

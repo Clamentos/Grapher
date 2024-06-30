@@ -31,6 +31,7 @@ import jakarta.persistence.EntityNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 ///..
 import java.util.function.Function;
@@ -132,6 +133,7 @@ public class OperationService {
 
                 for(OperationDto operation : operations) {
 
+                    Validator.requireFilled(operation.getName(), "name");
                     Operation entity = entities.get(operation.getId());
 
                     entity.setName(operation.getName());
@@ -148,10 +150,13 @@ public class OperationService {
 
             else {
 
-                List<String> namesNotFound = operations.stream().map(OperationDto::getName).toList();
-                namesNotFound.removeAll(entities.values().stream().map(Operation::getName).toList());
+                Set<String> foundNames = entities.values().stream().map(Operation::getName).collect(Collectors.toSet());
 
-                throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.OPERATION_NOT_FOUND, namesNotFound));
+                throw new EntityNotFoundException(ErrorFactory.generate(
+
+                    ErrorCode.OPERATION_NOT_FOUND,
+                    operations.stream().map(OperationDto::getName).filter((e) -> foundNames.contains(e) == false).toList()
+                ));
             }
         }
 
