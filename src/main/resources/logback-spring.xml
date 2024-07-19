@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <conversionRule
+        conversionWord="highlightex"
+        converterClass="io.github.clamentos.grapher.auth.configuration.LogbackHighlightConverter"
+    />
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+
+        <encoder>
+            <pattern>
+                [ %blue(%d{dd-MM-yyyy HH:mm:ss.SSS XXX}) ][ %highlightex(%-5p) ][ %magenta(%t) ][ %cyan(%logger{0}) ][ %m %ex]%n
+            </pattern>
+        </encoder>
+
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <file>logs/events.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+
+            <fileNamePattern>logs/archived/events-%d{dd-MM-yyyy-HH}-%i.log</fileNamePattern>
+            <maxFileSize>20KB</maxFileSize>    
+            <maxHistory>10</maxHistory>
+
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>[ %d{dd-MM-yyyy HH:mm:ss.SSS XXX} ][ %-5p ][ %t ][ %logger{0} ][ %m %ex]%n</pattern>
+        </encoder>
+
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+
+</configuration>

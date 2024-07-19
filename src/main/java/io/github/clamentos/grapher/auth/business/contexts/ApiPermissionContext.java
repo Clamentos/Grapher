@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.contexts;
 
 ///
+import io.github.clamentos.grapher.auth.messaging.Publisher;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.entities.ApiPermission;
 
 ///..
@@ -31,46 +34,50 @@ public final class ApiPermissionContext {
 
     ///
     private final ApiPermissionRepository repository;
+    private final Publisher publisher;
+
+    ///..
     private final Map<String, List<Permission>> apiPermissions;
 
     ///
     @Autowired
-    public ApiPermissionContext(ApiPermissionRepository repository) {
+    public ApiPermissionContext(ApiPermissionRepository repository, Publisher publisher) {
 
         this.repository = repository;
-        apiPermissions = new ConcurrentHashMap<>();
+        this.publisher = publisher;
 
-        fill(apiPermissions, repository, false);
+        apiPermissions = new ConcurrentHashMap<>();
+        apiPermissions.putAll(create(repository));
     }
 
     ///
     public List<Permission> getPermissions(String path) {
 
-        return(apiPermissions.get(path));
+        return(apiPermissions.getOrDefault(path, List.of()));
     }
 
     ///..
     public void reload() {
 
-        fill(apiPermissions, repository, true);
-        // TODO: publist event to rabbitmq saying that all services must "pull" the new api permission list
+        apiPermissions.putAll(create(repository));
+        publisher.publishReloadEvent(apiPermissions);
     }
 
     ///.
-    private static void fill(Map<String, List<Permission>> apiPermissions, ApiPermissionRepository repository, boolean overwrite) {
+    private static Map<String, List<Permission>> create(ApiPermissionRepository repository) {
 
-        // TODO: overwrite
+        Map<String, List<Permission>> permissions = new ConcurrentHashMap<>();
 
         for(ApiPermission permission : repository.findAll()) {
 
-            apiPermissions.compute(permission.getPath(), (k, v) -> {
+            permissions
 
-                List<Permission> values = v != null ? v : new ArrayList<>();
-                values.add(new Permission(permission.getOperation().getId(), permission.isOptional()));
-
-                return(values);
-            });
+                .computeIfAbsent(permission.getPath(), key -> new ArrayList<>())
+                .add(new Permission(permission.getOperation().getId(), permission.isOptional()))
+            ;
         }
+
+        return(permissions);
     }
 
     ///

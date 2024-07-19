@@ -17,7 +17,7 @@ public final class AuthDto {
 
     ///
     private UserDto userDetails;
-    private String token;
+    private String sessionId;
 
     ///
 }

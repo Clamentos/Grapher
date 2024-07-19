@@ -27,9 +27,12 @@ CREATE TABLE AUDIT (
 );
 
 ---..
-CREATE TABLE BLACKLISTED_TOKEN (
+CREATE TABLE SESSION (
 
-    hash                TEXT PRIMARY KEY,
+    session_id          TEXT PRIMARY KEY,
+    user_id             BIGINT NOT NULL,
+    username            TEXT NOT NULL,
+    operation_ids       TEXT NOT NULL,
     expires_at          BIGINT NOT NULL
 );
 
@@ -79,6 +82,17 @@ CREATE TABLE API_PERMISSION (
 
     CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE,
     UNIQUE(path, operation_id)
+);
+
+---..
+CREATE TABLE LOG (
+
+    id                  BIGSERIAL PRIMARY KEY,
+    timestamp           TIMESTAMPTZ NOT NULL,
+    level               TEXT NOT NULL,
+    thread              TEXT NOT NULL,
+    logger              TEXT NOT NULL,
+    message             TEXT NOT NULL
 );
 
 ---

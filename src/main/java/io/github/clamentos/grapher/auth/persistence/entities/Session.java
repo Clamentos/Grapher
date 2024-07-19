@@ -16,14 +16,23 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter @Setter
-@Entity @Table(name = "BLACKLISTED_TOKEN")
+@Entity @Table(name = "SESSION")
 
 ///
-public class BlacklistedToken {
+public class Session {
 
     ///
-    @Id @Column(name = "hash")
-    private String hash;
+    @Id @Column(name = "session_id")
+    private String sessionId;
+
+    @Column(name = "user_id")
+    private long userId;
+
+    @Column(name = "username")
+    private String username;
+
+    @Column(name = "operation_ids")
+    private String operationIds;
 
     @Column(name = "expires_at")
     private long expiresAt;

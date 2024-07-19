@@ -1,6 +1,7 @@
 package io.github.clamentos.grapher.auth.web.controllers;
 
 ///
+import io.github.clamentos.grapher.auth.business.services.SessionService;
 import io.github.clamentos.grapher.auth.business.services.UserService;
 
 ///..
@@ -11,7 +12,7 @@ import io.github.clamentos.grapher.auth.error.ErrorFactory;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
-import io.github.clamentos.grapher.auth.utility.TokenUtils;
+import io.github.clamentos.grapher.auth.utility.UserSession;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuthDto;
@@ -48,12 +49,14 @@ public final class UserController {
 
     ///
     private final UserService service;
+    private final SessionService sessionService;
 
     ///
     @Autowired
-    public UserController(UserService service) {
+    public UserController(UserService service, SessionService sessionService) {
 
         this.service = service;
+        this.sessionService = sessionService;
     }
 
     ///
@@ -73,9 +76,9 @@ public final class UserController {
 
     ///..
     @DeleteMapping(path = "/logout")
-    public ResponseEntity<Void> logout(@RequestAttribute(name = "jwtToken") String jwtToken) {
+    public ResponseEntity<Void> logout(@RequestAttribute(name = "sessionId") String sessionId) {
 
-        service.logout(jwtToken);
+        service.logout(sessionId);
         return(ResponseEntity.ok().build());
     }
 
@@ -104,15 +107,15 @@ public final class UserController {
     @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updateUser(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestAttribute(name = "authChecks") boolean[] authChecks,
         @RequestBody UserDto user
     ) {
 
         boolean canModifyOthers = authChecks.length > 0 ? authChecks[1] : true;
-        List<Object> claims = TokenUtils.getClaims(jwtToken, "name", "sub");
+        UserSession userSession = sessionService.getUserSession(sessionId);
 
-        service.updateUser((String)claims.get(0), (long)claims.get(1), user, canModifyOthers);
+        service.updateUser(userSession.getUsername(), userSession.getUserId(), user, canModifyOthers);
         return(ResponseEntity.ok().build());
     }
 
@@ -120,20 +123,20 @@ public final class UserController {
     @DeleteMapping(path = "/{id}")
     public ResponseEntity<Void> deleteUser(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestAttribute(name = "authChecks") boolean[] authChecks,
         @PathVariable(name = "id") long id
     ) {
 
         boolean canDeleteOthers = authChecks.length > 0 ? authChecks[1] : true;
-        List<Object> claims = TokenUtils.getClaims(jwtToken, "name", "sub");
+        UserSession userSession = sessionService.getUserSession(sessionId);
 
-        if(canDeleteOthers == false && id != (long)claims.get(1)) {
+        if(canDeleteOthers == false && id != userSession.getUserId()) {
 
             throw new AuthorizationException(ErrorFactory.generate(ErrorCode.ILLEGAL_ACTION));
         }
 
-        service.deleteUser((String)claims.get(0), id);
+        service.deleteUser(userSession.getUsername(), id);
         return(ResponseEntity.ok().build());
     }
 

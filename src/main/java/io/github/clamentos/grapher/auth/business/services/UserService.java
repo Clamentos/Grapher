@@ -45,16 +45,13 @@ import jakarta.persistence.EntityNotFoundException;
 
 ///..
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 ///..
 import java.util.concurrent.ThreadLocalRandom;
 
-///.
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+///..
+import java.util.stream.Collectors;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,21 +67,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 
 ///
+// TODO: proper password strength validation
 public class UserService {
 
     ///
-    private final Logger logger;
-
-    ///..
     private final UserRepository repository;
     private final AuditRepository auditRepository;
     private final OperationRepository operationRepository;
     private final UserMapper mapper;
     private final OperationMapper operationMapper;
-    private final TokenService tokenService;
+    private final SessionService sessionService;
 
     ///..
-    private final long tokenDuration;
     private final int effort;
 
     ///
@@ -96,22 +90,18 @@ public class UserService {
         OperationRepository operationRepository,
         UserMapper mapper,
         OperationMapper operationMapper,
-        TokenService tokenService,
+        SessionService sessionService,
 
-        @Value("${grapher-auth.tokenDuration}") long tokenDuration,
         @Value("${grapher-auth.bcryptEffort}") int effort
     ) {
-
-        logger = LogManager.getLogger(this.getClass().getSimpleName());
 
         this.repository = repository;
         this.auditRepository = auditRepository;
         this.operationRepository = operationRepository;
         this.mapper = mapper;
         this.operationMapper = operationMapper;
-        this.tokenService = tokenService;
+        this.sessionService = sessionService;
 
-        this.tokenDuration = tokenDuration;
         this.effort = effort;
     }
 
@@ -134,25 +124,9 @@ public class UserService {
 
             user.setPassword(BCrypt.withDefaults().hashToString(effort, userDetails.getPassword().toCharArray()));
             user.setInstantAudit(new InstantAudit(0, now, now, userDetails.getUsername(), userDetails.getUsername()));
+            user.setId(ThreadLocalRandom.current().nextLong());
 
-            boolean inserted = false;
-
-            while(inserted == false) {
-
-                try {
-
-                    user.setId(ThreadLocalRandom.current().nextLong());
-                    user = repository.save(user);
-
-                    inserted = true;
-                }
-
-                catch(EntityExistsException exc) {
-
-                    logger.warn("Insert collision for id: {}, retrying...", user.getId());
-                }
-            }
-
+            user = repository.save(user);
             auditRepository.saveAll(AuditUtils.insertUserAudit(user));
         }
 
@@ -174,30 +148,28 @@ public class UserService {
 
         if(entity != null) {
 
-            if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), entity.getPassword()).verified == false) {
+            if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), entity.getPassword()).verified == true) {
+
+                List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
+                UserDto user = mapper.mapIntoDto(entity);
+
+                user.setPassword(null);
+                user.setOperations(operations);
+
+                String sessionId = sessionService.generate(
+                    
+                    user.getId(),
+                    user.getUsername(),
+                    user.getOperations().stream().map(OperationDto::getId).collect(Collectors.toSet())
+                );
+
+                return(new AuthDto(user, sessionId));
+            }
+
+            else {
 
                 throw new AuthenticationException(ErrorFactory.generate(ErrorCode.WRONG_PASSWORD));
             }
-
-            List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
-            UserDto user = mapper.mapIntoDto(entity);
-
-            user.setPassword(null);
-            user.setOperations(operations);
-
-            Map<String, Object> claims = new HashMap<>();
-            long now = System.currentTimeMillis();
-
-            claims.put("jti", ThreadLocalRandom.current().nextLong());
-            claims.put("iat", now);
-            claims.put("exp", now + tokenDuration);
-            claims.put("sub", user.getId());
-            claims.put("name", user.getUsername());
-            claims.put("flags", user.getFlags());
-            claims.put("operations", user.getOperations().stream().map(OperationDto::getId).toList());
-
-            String token = tokenService.generate(claims);
-            return(new AuthDto(user, token));
         }
 
         else {
@@ -207,13 +179,14 @@ public class UserService {
     }
 
     ///..
-    public void logout(String token) {
+    public void logout(String sessionId) {
 
-        tokenService.blacklistToken(token);
+        sessionService.remove(sessionId);
     }
 
     ///..
-    public List<UserDto> getAllUsers(String username, String email, String createdAtRange, String updatedAtRange, String operations) {
+    public List<UserDto> getAllUsers(String username, String email, String createdAtRange, String updatedAtRange, String operations)
+    throws IllegalArgumentException {
 
         List<Long> dates = parse(createdAtRange, updatedAtRange);
 
@@ -225,7 +198,7 @@ public class UserService {
             dates.get(1),
             dates.get(2),
             dates.get(3),
-            operations.equals("") ? null : operations.split(",")
+            operations.length() == 0 ? null : operations.split(",")
         ))));
     }
 
@@ -237,11 +210,10 @@ public class UserService {
 
         if(entity != null) {
 
-            List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
             UserDto user = mapper.mapIntoDto(entity);
 
             user.setPassword(null);
-            user.setOperations(operations);
+            user.setOperations(operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity)));
 
             return(user);
         }
@@ -270,23 +242,29 @@ public class UserService {
 
                 if(user.getUsername() != null) {
 
-                    if(repository.existsByUsername(user.getUsername())) {
+                    Validator.requireFilled(user.getUsername(), "username");
+
+                    if(repository.existsByUsername(user.getUsername()) == false) {
+
+                        entity.setUsername(user.getUsername());
+                        columns.append("username,");
+                    }
+
+                    else {
 
                         throw new EntityExistsException(ErrorFactory.generate(ErrorCode.USER_ALREADY_EXISTS, user.getUsername()));
                     }
-
-                    entity.setUsername(user.getUsername());
-                    columns.append("username,");
                 }
 
-                if(user.getPassword() != null && user.getPassword().length() > 0) {
+                if(user.getPassword() != null) {
 
+                    Validator.requireFilled(user.getPassword(), "password");
                     entity.setPassword(BCrypt.withDefaults().hashToString(effort, user.getPassword().toCharArray()));
                     columns.append("password,");
                 }
 
                 if(user.getEmail() != null) {
-                    
+
                     entity.setEmail(user.getEmail());
                     columns.append("email,");
                 }
@@ -301,7 +279,7 @@ public class UserService {
 
                 if(user.getOperations() != null) {
 
-                    if(entity.getId() != requestingUserId ) {
+                    if(entity.getId() != requestingUserId) {
 
                         List<Operation> operations = operationRepository.findAllByName(
 
@@ -311,11 +289,7 @@ public class UserService {
                                 .toList()
                         );
 
-                        for(Operation operation : operations) {
-
-                            userOperations.add(new UserOperation(0, entity, operation));
-                        }
-
+                        operations.forEach(o -> userOperations.add(new UserOperation(0, entity, o)));
                         entity.setOperations(userOperations);
                         columns.append("operations,");
                     }
@@ -326,10 +300,10 @@ public class UserService {
                     }
                 }
 
-                columns.deleteCharAt(columns.length() - 1);
-
                 entity.getInstantAudit().setUpdatedAt(System.currentTimeMillis());
                 entity.getInstantAudit().setUpdatedBy(username);
+
+                columns.deleteCharAt(columns.length() - 1);
 
                 repository.save(entity);
                 auditRepository.saveAll(AuditUtils.updateUserAudit(entity, userOperations, columns.toString()));
@@ -366,7 +340,7 @@ public class UserService {
     }
 
     ///.
-    private List<Long> parse(String createdAtRange, String updatedAtRange) {
+    private List<Long> parse(String createdAtRange, String updatedAtRange) throws IllegalArgumentException {
 
         List<Long> dates = new ArrayList<>();
 
@@ -381,13 +355,7 @@ public class UserService {
 
         List<Long> dates = new ArrayList<>();
 
-        if(dateRange.equals("")) {
-
-            dates.add(null);
-            dates.add(null);
-        }
-
-        else {
+        if(dateRange.length() > 0) {
 
             String[] splits = dateRange.split(",");
 
@@ -401,6 +369,12 @@ public class UserService {
 
                 throw new IllegalArgumentException(ErrorFactory.generate(ErrorCode.BAD_FORMAT, splits[1]));
             }
+        }
+
+        else {
+
+            dates.add(null);
+            dates.add(null);
         }
 
         return(dates);

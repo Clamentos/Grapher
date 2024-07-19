@@ -1,7 +1,7 @@
 package io.github.clamentos.grapher.auth.web.interceptors;
 
 ///
-import io.github.clamentos.grapher.auth.business.services.TokenService;
+import io.github.clamentos.grapher.auth.business.services.SessionService;
 
 ///..
 import io.github.clamentos.grapher.auth.error.ErrorCode;
@@ -26,14 +26,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class RequestInterceptor implements HandlerInterceptor {
 
     ///
-    private final TokenService service;
+    private final SessionService service;
 
     ///..
     private final Set<String> authenticationExcludedPaths;
     private final Set<String> authorizationExcludedPaths;
 
     ///
-    public RequestInterceptor(TokenService service) {
+    public RequestInterceptor(SessionService service) {
 
         this.service = service;
 
@@ -59,34 +59,26 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             String header = request.getHeader("Authorization");
 
-            if(header != null && header.length() > 7) {
+            if(header != null) {
 
-                String[] splits = header.split(" ");
+                service.authenticate(header);
 
-                if(splits.length == 2) {
+                if(authorizationExcludedPaths.contains(uri) == false) {
 
-                    if(splits[0].equals("Bearer")) {
+                    if(Character.isDigit(uri.charAt(uri.length() - 1))) {
 
-                        service.authenticate(splits[1]);
-
-                        if(authorizationExcludedPaths.contains(uri) == false) {
-
-                            if(Character.isDigit(uri.charAt(uri.length() - 1))) {
-
-                                int lastSlashIndex = uri.lastIndexOf("/");
-                                uri = uri.substring(0, lastSlashIndex + 1) + "{id}";
-                            }
-
-                            request.setAttribute("authChecks", service.authorize(splits[1], method + uri));
-                        }
-
-                        request.setAttribute("jwtToken", splits[1]);
-                        return(true);
+                        int lastSlashIndex = uri.lastIndexOf("/");
+                        uri = uri.substring(0, lastSlashIndex + 1) + "{id}";
                     }
+
+                    request.setAttribute("authChecks", service.authorize(header, method + uri));
                 }
+
+                request.setAttribute("sessionId", header);
+                return(true);
             }
 
-            throw new AuthenticationException(ErrorFactory.generate(ErrorCode.INVALID_TOKEN));
+            throw new AuthenticationException(ErrorFactory.generate(ErrorCode.INVALID_AUTH_HEADER));
         }
 
 		return(true);

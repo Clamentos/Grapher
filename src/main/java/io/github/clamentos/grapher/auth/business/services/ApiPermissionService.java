@@ -84,12 +84,12 @@ public class ApiPermissionService {
     public void createPermissions(String username, List<ApiPermissionDto> permissions)
     throws EntityExistsException, EntityNotFoundException, IllegalArgumentException {
 
-        Set<Short> operationIds = permissions.stream().map((p) -> { return(p.getOperation().getId()); }).collect(Collectors.toSet());
+        Set<Short> operationIds = permissions.stream().map(p -> p.getOperation().getId()).collect(Collectors.toSet());
         List<Operation> existingOperations = operationRepository.findAllById(operationIds);
 
         if(existingOperations.size() == operationIds.size()) {
 
-            Set<String> desiredPaths = permissions.stream().map((p) -> { return(p.getPath()); }).collect(Collectors.toSet());
+            Set<String> desiredPaths = permissions.stream().map(ApiPermissionDto::getPath).collect(Collectors.toSet());
             List<Long> conflicts = repository.findAllIdsByCombo(desiredPaths, existingOperations);
 
             if(conflicts.size() == 0) {
@@ -112,12 +112,9 @@ public class ApiPermissionService {
                 }
 
                 entities = repository.saveAll(entities);
+
                 List<Audit> audits = new ArrayList<>();
-
-                for(ApiPermission entity : entities) {
-
-                    audits.addAll(AuditUtils.insertApiPermissionAudit(entity));
-                }
+                entities.forEach(e -> audits.addAll(AuditUtils.insertApiPermissionAudit(e)));
 
                 auditRepository.saveAll(audits);
             }
@@ -135,7 +132,7 @@ public class ApiPermissionService {
             throw new EntityNotFoundException(ErrorFactory.generate(
 
                 ErrorCode.PERMISSION_NOT_FOUND,
-                operationIds.stream().filter((e) -> existing.contains(e) == false ).toList()
+                operationIds.stream().filter(e -> existing.contains(e) == false).toList()
             ));
         }
     }
@@ -155,9 +152,7 @@ public class ApiPermissionService {
 
             Map<Long, ApiPermission> entities = repository.findAllById(
 
-                permissions
-                    .stream()
-                    .map(ApiPermissionDto::getId).toList()
+                permissions.stream().map(ApiPermissionDto::getId).toList()
             )
             .stream()
             .collect(Collectors.toMap(ApiPermission::getId, Function.identity()));
@@ -197,23 +192,22 @@ public class ApiPermissionService {
                     entity.getInstantAudit().setUpdatedAt(now);
                     entity.getInstantAudit().setUpdatedBy(username);
 
-                    sb.deleteCharAt(sb.length() - 1);
                     entitiesToSave.add(entity);
+
+                    sb.deleteCharAt(sb.length() - 1);
                     audits.addAll(AuditUtils.updateApiPermissionAudit(entity, sb.toString()));
                 }
 
                 Map<Short, Operation> operations = operationRepository.findAllById(idMappings.values())
 
-                    .stream()
-                    .collect(Collectors.toMap(Operation::getId, Function.identity()))
+                    .stream().collect(Collectors.toMap(Operation::getId, Function.identity()))
                 ;
 
                 if(operations.size() == idMappings.size()) {
 
                     for(Map.Entry<ApiPermission, Short> idMapping : idMappings.entrySet()) {
 
-                        ApiPermission entityToSave = idMapping.getKey();
-                        entityToSave.setOperation(operations.get(idMapping.getValue()));
+                        idMapping.getKey().setOperation(operations.get(idMapping.getValue()));
                     }
     
                     repository.saveAll(entitiesToSave);
@@ -225,7 +219,7 @@ public class ApiPermissionService {
                     throw new EntityNotFoundException(ErrorFactory.generate(
 
                         ErrorCode.OPERATION_NOT_FOUND,
-                        idMappings.values().stream().filter((e) -> operations.containsKey(e) == false).toList()
+                        idMappings.values().stream().filter(e -> operations.containsKey(e) == false).toList()
                     ));
                 }
             }
@@ -235,7 +229,7 @@ public class ApiPermissionService {
                 throw new EntityNotFoundException(ErrorFactory.generate(
 
                     ErrorCode.PERMISSION_NOT_FOUND,
-                    permissions.stream().map(ApiPermissionDto::getId).filter((e) -> entities.keySet().contains(e) == false).toList()
+                    permissions.stream().map(ApiPermissionDto::getId).filter(e -> entities.keySet().contains(e) == false).toList()
                 ));
             }
         }
@@ -250,12 +244,10 @@ public class ApiPermissionService {
         if(permissions.size() == ids.size()) {
 
             repository.deleteAllById(ids);
+
+            long now = System.currentTimeMillis();
             List<Audit> audits = new ArrayList<>();
-
-            for(ApiPermission entity : permissions) {
-
-                audits.addAll(AuditUtils.deleteApiPermissionAudit(entity, System.currentTimeMillis(), username));
-            }
+            permissions.forEach(p -> audits.addAll(AuditUtils.deleteApiPermissionAudit(p, now, username)));
 
             auditRepository.saveAll(audits);
         }
@@ -272,10 +264,9 @@ public class ApiPermissionService {
 
         Validator.validateAuditedObject(permission);
 
-        if(insertOrUpdate) { // update
+        if(insertOrUpdate) { // Update mode.
 
             Validator.requireNotNull(permission.getId(), "id");
-
             if(permission.getPath() != null) Validator.requireFilled(permission.getPath(), "path");
 
             if(permission.getOperation() != null) {
@@ -286,7 +277,7 @@ public class ApiPermissionService {
             }
         }
 
-        else { // insert
+        else { // Insert mode.
 
             Validator.requireNull(permission.getId(), "id");
             Validator.requireFilled(permission.getPath(), "path");

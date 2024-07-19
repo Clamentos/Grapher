@@ -13,8 +13,8 @@ import lombok.Getter;
 public enum ErrorCode {
 
     ///
-    INVALID_TOKEN("EC000"),
-    BLACKLISTED_TOKEN("EC001"),
+    INVALID_AUTH_HEADER("EC000"),
+    EXPIRED_SESSION("EC001"),
     ILLEGAL_ACTION("EC002"),
     WRONG_PASSWORD("EC003"),
     NOT_ENOUGH_PRIVILEGES("EC004"),
@@ -31,7 +31,10 @@ public enum ErrorCode {
     BAD_FORMAT("EC011"),
     VALIDATOR_REQUIRE_NULL("EC012"),
     VALIDATOR_REQUIRE_NOT_NULL("EC013"),
-    VALIDATOR_REQUIRE_FILLED("EC014");
+    VALIDATOR_REQUIRE_FILLED("EC014"),
+
+    TOO_MANY_SESSIONS("EC015"),
+    SESSION_NOT_FOUND("EC016");
 
     ///
     private final String value;

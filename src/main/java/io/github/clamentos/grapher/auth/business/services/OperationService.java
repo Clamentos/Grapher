@@ -86,12 +86,9 @@ public class OperationService {
             }
 
             entities = repository.saveAll(entities);
+
             List<Audit> audits = new ArrayList<>();
-
-            for(Operation entity : entities) {
-
-                audits.addAll(AuditUtils.insertOperationAudit(entity));
-            }
+            entities.forEach(e -> audits.addAll(AuditUtils.insertOperationAudit(e)));
 
             auditRepository.saveAll(audits);
         }
@@ -119,9 +116,7 @@ public class OperationService {
 
             Map<Short, Operation> entities = repository.findAllById(
 
-                operations
-                    .stream()
-                    .map(OperationDto::getId).toList()
+                operations.stream().map(OperationDto::getId).toList()
             )
             .stream()
             .collect(Collectors.toMap(Operation::getId, Function.identity()));
@@ -155,7 +150,7 @@ public class OperationService {
                 throw new EntityNotFoundException(ErrorFactory.generate(
 
                     ErrorCode.OPERATION_NOT_FOUND,
-                    operations.stream().map(OperationDto::getName).filter((e) -> foundNames.contains(e) == false).toList()
+                    operations.stream().map(OperationDto::getName).filter(e -> foundNames.contains(e) == false).toList()
                 ));
             }
         }
@@ -175,12 +170,10 @@ public class OperationService {
         if(operations.size() == ids.size()) {
 
             repository.deleteAllById(ids);
+
+            long now = System.currentTimeMillis();
             List<Audit> audits = new ArrayList<>();
-
-            for(Operation entity : operations) {
-
-                audits.addAll(AuditUtils.deleteOperationAudit(entity, System.currentTimeMillis(), username));
-            }
+            operations.forEach(o -> audits.addAll(AuditUtils.deleteOperationAudit(o, now, username)));
 
             auditRepository.saveAll(audits);
         }

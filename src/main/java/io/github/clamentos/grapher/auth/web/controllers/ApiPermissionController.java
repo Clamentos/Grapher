@@ -2,9 +2,7 @@ package io.github.clamentos.grapher.auth.web.controllers;
 
 ///
 import io.github.clamentos.grapher.auth.business.services.ApiPermissionService;
-
-///..
-import io.github.clamentos.grapher.auth.utility.TokenUtils;
+import io.github.clamentos.grapher.auth.business.services.SessionService;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.ApiPermissionDto;
@@ -38,23 +36,25 @@ public final class ApiPermissionController {
 
     ///
     private final ApiPermissionService service;
+    private final SessionService sessionService;
 
     ///
     @Autowired
-    public ApiPermissionController(ApiPermissionService service) {
+    public ApiPermissionController(ApiPermissionService service, SessionService sessionService) {
 
         this.service = service;
+        this.sessionService = sessionService;
     }
 
     ///
     @PostMapping(consumes = "application/json")
     public ResponseEntity<Void> createPermissions(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestBody List<ApiPermissionDto> permissions
     ) {
 
-        service.createPermissions((String)TokenUtils.getClaims(jwtToken, "name").get(0), permissions);
+        service.createPermissions(sessionService.getUserSession(sessionId).getUsername(), permissions);
         return(ResponseEntity.ok().build());
     }
 
@@ -69,11 +69,11 @@ public final class ApiPermissionController {
     @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updatePermissions(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestBody List<ApiPermissionDto> permissions
     ) {
 
-        service.updatePermissions((String)TokenUtils.getClaims(jwtToken, "name").get(0), permissions);
+        service.updatePermissions(sessionService.getUserSession(sessionId).getUsername(), permissions);
         return(ResponseEntity.ok().build());
     }
 
@@ -81,11 +81,11 @@ public final class ApiPermissionController {
     @DeleteMapping
     public ResponseEntity<Void> deletePermissions(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
-        @RequestParam(name = "ids", required = true) List<Long> ids
+        @RequestAttribute(name = "sessionId") String sessionId,
+        @RequestParam(name = "ids") List<Long> ids
     ) {
 
-        service.deletePermissions((String)TokenUtils.getClaims(jwtToken, "name").get(0), ids);
+        service.deletePermissions(sessionService.getUserSession(sessionId).getUsername(), ids);
         return(ResponseEntity.ok().build());
     }
 

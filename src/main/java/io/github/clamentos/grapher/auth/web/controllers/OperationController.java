@@ -2,9 +2,7 @@ package io.github.clamentos.grapher.auth.web.controllers;
 
 ///
 import io.github.clamentos.grapher.auth.business.services.OperationService;
-
-///..
-import io.github.clamentos.grapher.auth.utility.TokenUtils;
+import io.github.clamentos.grapher.auth.business.services.SessionService;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.OperationDto;
@@ -38,29 +36,31 @@ public final class OperationController {
 
     ///
     private final OperationService service;
+    private final SessionService sessionService;
 
     ///
     @Autowired
-    public OperationController(OperationService service) {
+    public OperationController(OperationService service, SessionService sessionService) {
 
         this.service = service;
+        this.sessionService = sessionService;
     }
 
     ///
     @PostMapping(consumes = "application/json")
     public ResponseEntity<Void> createOperations(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestBody List<String> operations
     ) {
 
-        service.createOperations((String)TokenUtils.getClaims(jwtToken, "name").get(0), operations);
+        service.createOperations(sessionService.getUserSession(sessionId).getUsername(), operations);
         return(ResponseEntity.ok().build());
     }
 
     ///..
     @GetMapping(produces = "application/json")
-    public ResponseEntity<List<OperationDto>> readOperations(@RequestAttribute(name = "jwtToken") String jwtToken) {
+    public ResponseEntity<List<OperationDto>> readOperations(@RequestAttribute(name = "sessionId") String sessionId) {
 
         return(ResponseEntity.ok(service.readOperations()));
     }
@@ -69,11 +69,11 @@ public final class OperationController {
     @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updateOperations(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestBody List<OperationDto> operations
     ) {
 
-        service.updateOperations((String)TokenUtils.getClaims(jwtToken, "name").get(0), operations);
+        service.updateOperations(sessionService.getUserSession(sessionId).getUsername(), operations);
         return(ResponseEntity.ok().build());
     }
 
@@ -81,11 +81,11 @@ public final class OperationController {
     @DeleteMapping
     public ResponseEntity<Void> deleteOperations(
 
-        @RequestAttribute(name = "jwtToken") String jwtToken,
+        @RequestAttribute(name = "sessionId") String sessionId,
         @RequestParam(name = "ids") List<Short> ids
     ) {
 
-        service.deleteOperations((String)TokenUtils.getClaims(jwtToken, "name").get(0), ids);
+        service.deleteOperations(sessionService.getUserSession(sessionId).getUsername(), ids);
         return(ResponseEntity.ok().build());
     }
 
