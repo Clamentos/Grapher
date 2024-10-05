@@ -10,58 +10,46 @@ import lombok.Getter;
 @Getter
 
 ///
-public enum ErrorCode {
+public enum ErrorCode { // TODO: finish
 
     ///
     INVALID_AUTH_HEADER("EC000"),
     EXPIRED_SESSION("EC001"),
     ILLEGAL_ACTION("EC002"),
+    ILLEGAL_ACTION_SAME_USER(""),
+    ILLEGAL_ACTION_DIFFERENT_USER(""),
+    ILLEGAL_ACTION_SAME_PASSWORD(""),
     WRONG_PASSWORD("EC003"),
     NOT_ENOUGH_PRIVILEGES("EC004"),
 
-    OPERATION_NOT_FOUND("EC005"),
-    OPERATION_ALREADY_EXISTS("EC006"),
+    USER_NOT_FOUND("EC005"),
+    USER_ALREADY_EXISTS("EC006"),
+    USER_LOCKED("EC007"),
+    USER_PASSWORD_EXPIRED(""),
 
-    USER_NOT_FOUND("EC007"),
-    USER_ALREADY_EXISTS("EC008"),
+    BAD_FORMAT("EC008"),
+    VALIDATOR_REQUIRE_NULL("EC009"),
+    VALIDATOR_REQUIRE_NULL_OR_EMPTY(""),
+    VALIDATOR_REQUIRE_NOT_NULL("EC010"),
+    VALIDATOR_REQUIRE_FILLED("EC011"),
+    VALIDATOR_PASSWORD_TOO_WEAK("EC012"),
+    VALIDATOR_BAD_EMAIL(""),
+    VALIDATOR_BAD_USERNAME(""),
+    VALIDATOR_IMAGE_TOO_LARGE(""),
+    VALIDATOR_REQUIRE_NULL_OR_FILLED(""),
 
-    PERMISSION_NOT_FOUND("EC009"),
-    PERMISSION_ALREADY_EXISTS("EC010"),
+    SUBSCRIPTION_NOT_FOUND(""),
 
-    BAD_FORMAT("EC011"),
-    VALIDATOR_REQUIRE_NULL("EC012"),
-    VALIDATOR_REQUIRE_NOT_NULL("EC013"),
-    VALIDATOR_REQUIRE_FILLED("EC014"),
-
-    TOO_MANY_SESSIONS("EC015"),
-    SESSION_NOT_FOUND("EC016");
+    TOO_MANY_SESSIONS("EC013"),
+    SESSION_NOT_FOUND("EC014"),
+    DEFAULT("EC999");
 
     ///
     private final String value;
 
     ///
-    public static boolean isValidErrorCode(String code) {
-
-        switch(code) {
-
-            case "EC000": return(true);
-            case "EC001": return(true);
-            case "EC002": return(true);
-            case "EC003": return(true);
-            case "EC004": return(true);
-            case "EC005": return(true);
-            case "EC006": return(true);
-            case "EC007": return(true);
-            case "EC008": return(true);
-            case "EC009": return(true);
-            case "EC010": return(true);
-            case "EC011": return(true);
-            case "EC012": return(true);
-            case "EC013": return(true);
-
-            default: return(false);
-        }
-    }
+    /** @return The never {@code null} default error code. */
+    public static ErrorCode getDefault() { return(ErrorCode.DEFAULT); }
 
     ///
 }

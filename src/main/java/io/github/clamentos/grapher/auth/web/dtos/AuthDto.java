@@ -3,21 +3,24 @@ package io.github.clamentos.grapher.auth.web.dtos;
 ///
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+
+///
+/**
+ * <h3>Auth Dto</h3>
+ * Outgoing-only DTO for HTTP login responses.
+*/
 
 ///
 @AllArgsConstructor
-@NoArgsConstructor
 @Getter
-@Setter
 
 ///
 public final class AuthDto {
 
     ///
-    private UserDto userDetails;
-    private String sessionId;
+    private final UserDto userDetails;
+    private final String sessionId;
+    private final long sessionExpiresAt;
 
     ///
 }

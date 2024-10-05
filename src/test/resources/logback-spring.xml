@@ -3,44 +3,34 @@
 
     <conversionRule
         conversionWord="highlightex"
-        converterClass="io.github.clamentos.grapher.auth.configuration.LogbackHighlightConverter"
+        converterClass="io.github.clamentos.grapher.auth.logging.ConsoleColorConverter"
     />
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-
         <encoder>
             <pattern>
                 [ %blue(%d{dd-MM-yyyy HH:mm:ss.SSS XXX}) ][ %highlightex(%-5p) ][ %magenta(%t) ][ %cyan(%logger{0}) ][ %m %ex]%n
             </pattern>
         </encoder>
-
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <appender name="DB" class="io.github.clamentos.grapher.auth.logging.DatabaseAppender">
 
-        <file>logs/events.log</file>
+        <filePath>./logBuffer.log</filePath>
+        <bufferSize>4096</bufferSize>
+        <taskSleepAmount>2000</taskSleepAmount>
 
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <patternLayout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>
+                %d{dd-MM-yyyy HH:mm:ss.SSS XXX}~%-5p~%t~%logger{0}~%m
+            </pattern>
+        </patternLayout>
 
-            <fileNamePattern>logs/archived/events-%d{dd-MM-yyyy-HH}-%i.log</fileNamePattern>
-            <maxFileSize>20KB</maxFileSize>    
-            <maxHistory>10</maxHistory>
-
-        </rollingPolicy>
-
-        <encoder>
-            <pattern>[ %d{dd-MM-yyyy HH:mm:ss.SSS XXX} ][ %-5p ][ %t ][ %logger{0} ][ %m %ex]%n</pattern>
-        </encoder>
-
-    </appender>
-
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
     </appender>
 
     <root level="info">
         <appender-ref ref="STDOUT"/>
-        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="DB"/>
     </root>
 
 </configuration>

@@ -10,19 +10,24 @@ import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 ///.
-import java.time.ZonedDateTime;
-
-///.
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 ///
+/**
+ * <h3>Log</h3>
+ * JPA {@link Entity} for the {@code LOG} database table.
+*/
+
+///
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter
-@Entity @Table(name = "LOG")
+@Getter
+@Setter
+@Entity
+@Table(name = "LOG")
 
 ///
 public class Log {
@@ -34,7 +39,7 @@ public class Log {
     private long id;
 
     @Column(name = "timestamp")
-    private ZonedDateTime timestamp;
+    private long timestamp;
 
     @Column(name = "level")
     private String level;
@@ -47,6 +52,9 @@ public class Log {
 
     @Column(name = "message")
     private String message;
+
+    @Column(name = "created_at")
+    private long createdAt;
 
     ///
 }

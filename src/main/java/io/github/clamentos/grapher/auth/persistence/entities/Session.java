@@ -1,8 +1,13 @@
 package io.github.clamentos.grapher.auth.persistence.entities;
 
 ///
+import io.github.clamentos.grapher.auth.persistence.UserRole;
+
+///.
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -13,17 +18,25 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 ///
+/**
+ * <h3>Session</h3>
+ * JPA {@link Entity} for the {@code SESSION} database table.
+*/
+
+///
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter
-@Entity @Table(name = "SESSION")
+@Getter
+@Setter
+@Entity
+@Table(name = "SESSION")
 
 ///
 public class Session {
 
     ///
-    @Id @Column(name = "session_id")
-    private String sessionId;
+    @Id @Column(name = "id")
+    private String id;
 
     @Column(name = "user_id")
     private long userId;
@@ -31,8 +44,9 @@ public class Session {
     @Column(name = "username")
     private String username;
 
-    @Column(name = "operation_ids")
-    private String operationIds;
+    @Column(name = "user_role")
+    @Enumerated(EnumType.STRING)
+    private UserRole userRole;
 
     @Column(name = "expires_at")
     private long expiresAt;

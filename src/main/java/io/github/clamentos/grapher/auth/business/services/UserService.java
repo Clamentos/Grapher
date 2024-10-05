@@ -4,8 +4,7 @@ package io.github.clamentos.grapher.auth.business.services;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 
 ///.
-import io.github.clamentos.grapher.auth.business.mappers.OperationMapper;
-import io.github.clamentos.grapher.auth.business.mappers.UserMapper;
+import io.github.clamentos.grapher.auth.business.Action;
 
 ///..
 import io.github.clamentos.grapher.auth.error.ErrorCode;
@@ -14,48 +13,54 @@ import io.github.clamentos.grapher.auth.error.ErrorFactory;
 ///..
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+import io.github.clamentos.grapher.auth.error.exceptions.IllegalActionException;
+import io.github.clamentos.grapher.auth.error.exceptions.WrongPasswordException;
 
 ///..
-import io.github.clamentos.grapher.auth.persistence.entities.InstantAudit;
-import io.github.clamentos.grapher.auth.persistence.entities.Operation;
+import io.github.clamentos.grapher.auth.persistence.AuditAction;
+import io.github.clamentos.grapher.auth.persistence.LockReason;
+import io.github.clamentos.grapher.auth.persistence.UserRole;
+
+///..
+import io.github.clamentos.grapher.auth.persistence.entities.Audit;
+import io.github.clamentos.grapher.auth.persistence.entities.Session;
+import io.github.clamentos.grapher.auth.persistence.entities.Subscription;
 import io.github.clamentos.grapher.auth.persistence.entities.User;
-import io.github.clamentos.grapher.auth.persistence.entities.UserOperation;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.repositories.AuditRepository;
-import io.github.clamentos.grapher.auth.persistence.repositories.OperationRepository;
 import io.github.clamentos.grapher.auth.persistence.repositories.UserRepository;
 
 ///..
-import io.github.clamentos.grapher.auth.persistence.specifications.UserSpecification;
-
-///..
-import io.github.clamentos.grapher.auth.utility.AuditUtils;
-import io.github.clamentos.grapher.auth.utility.Validator;
-
-///..
 import io.github.clamentos.grapher.auth.web.dtos.AuthDto;
-import io.github.clamentos.grapher.auth.web.dtos.OperationDto;
+import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
+import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
 import io.github.clamentos.grapher.auth.web.dtos.UsernamePassword;
 
 ///.
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 
-///..
+///.
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
-///..
-import java.util.concurrent.ThreadLocalRandom;
-
-///..
-import java.util.stream.Collectors;
+///.
+import lombok.extern.slf4j.Slf4j;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+
+///..
+import org.springframework.core.env.Environment;
+
+///..
+import org.springframework.dao.DataAccessException;
+
+///..
+import org.springframework.data.domain.PageRequest;
 
 ///..
 import org.springframework.stereotype.Service;
@@ -64,320 +69,579 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 ///
-@Service
+/**
+ * <h3>User Service</h3>
+ * Spring {@link Service} to manage {@link User} objects.
+*/
 
 ///
-// TODO: proper password strength validation
+@Service
+@Slf4j
+
+///
 public class UserService {
 
     ///
-    private final UserRepository repository;
+    private final UserRepository userRepository;
     private final AuditRepository auditRepository;
-    private final OperationRepository operationRepository;
-    private final UserMapper mapper;
-    private final OperationMapper operationMapper;
     private final SessionService sessionService;
+    private final ValidatorService validatorService;
 
     ///..
-    private final int effort;
+    private final int bcryptEffort;
+    private final int loginFailures;
+    private final long userLockTime;
+    private final long passwordExpirationTime;
 
     ///
+    /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
     public UserService(
 
-        UserRepository repository,
+        UserRepository userRepository,
         AuditRepository auditRepository,
-        OperationRepository operationRepository,
-        UserMapper mapper,
-        OperationMapper operationMapper,
         SessionService sessionService,
-
-        @Value("${grapher-auth.bcryptEffort}") int effort
+        ValidatorService validatorService,
+        Environment environment
     ) {
 
-        this.repository = repository;
+        this.userRepository = userRepository;
         this.auditRepository = auditRepository;
-        this.operationRepository = operationRepository;
-        this.mapper = mapper;
-        this.operationMapper = operationMapper;
         this.sessionService = sessionService;
+        this.validatorService = validatorService;
 
-        this.effort = effort;
+        bcryptEffort = environment.getProperty("grapher-auth.bcryptEffort", Integer.class, 12);
+        loginFailures = environment.getProperty("grapher-auth.loginFailures", Integer.class, 5);
+        userLockTime = environment.getProperty("grapher-auth.userLockTime", Long.class, 60000L); // 1 min
+        passwordExpirationTime = environment.getProperty("grapher-auth.passwordExpirationTime", Long.class, 5184000000L); // 60 days
     }
 
     ///
+    /**
+     * Registers a new user with the specified details.
+     * @param session : The session of the calling user, if available.
+     * @param userDetails : The user details.
+     * @throws DataAccessException If any database access errors occur.
+     * @throws EntityExistsException If the specified user already exists.
+     * @throws IllegalArgumentException If {@code userDetails} fails validation.
+    */
     @Transactional
-    public void register(UserDto userDetails) throws EntityExistsException, IllegalArgumentException {
+    public void register(Session session, UserDto userDetails)
+    throws DataAccessException, EntityExistsException, IllegalArgumentException {
 
-        Validator.validateAuditedObject(userDetails);
-        Validator.requireNull(userDetails.getId(), "id");
-        Validator.requireFilled(userDetails.getUsername(), "username");
-        Validator.requireFilled(userDetails.getPassword(), "password");
-        Validator.requireNotNull(userDetails.getEmail(), "email");
-        Validator.requireNull(userDetails.getFlags(), "flags");
-        Validator.requireNull(userDetails.getOperations(), "operations");
+        validatorService.validateAndSanitize(userDetails, false);
+        if(session != null) sessionService.check(session.getId(), Action.CREATE_OTHERS.getAllowedRoles(), null, "Cannot create others");
 
-        if(repository.existsByUsername(userDetails.getUsername()) == false) {
+        if(userRepository.existsByUsername(userDetails.getUsername())) {
 
-            User user = mapper.mapIntoEntity(userDetails);
-            long now = System.currentTimeMillis();
+            throw new EntityExistsException(ErrorFactory.create(
 
-            user.setPassword(BCrypt.withDefaults().hashToString(effort, userDetails.getPassword().toCharArray()));
-            user.setInstantAudit(new InstantAudit(0, now, now, userDetails.getUsername(), userDetails.getUsername()));
-            user.setId(ThreadLocalRandom.current().nextLong());
-
-            user = repository.save(user);
-            auditRepository.saveAll(AuditUtils.insertUserAudit(user));
+                ErrorCode.USER_ALREADY_EXISTS, "UserService::register -> User already exists", userDetails.getUsername()
+            ));
         }
 
-        else {
+        User user = userRepository.save(new User(
 
-            throw new EntityExistsException(ErrorFactory.generate(ErrorCode.USER_ALREADY_EXISTS, userDetails.getUsername()));
-        }
+            userDetails.getUsername(),
+            BCrypt.withDefaults().hashToString(bcryptEffort, userDetails.getPassword().toCharArray()),
+            userDetails.getEmail(),
+            userDetails.getProfilePicture() != null ? Base64.getDecoder().decode(userDetails.getProfilePicture()) : null,
+            userDetails.getAbout(),
+            session != null ? session.getUsername() : userDetails.getUsername()
+        ));
+
+        auditRepository.save(new Audit(user, AuditAction.CREATED, user.getCreatedBy(), null));
     }
 
     ///..
-    @Transactional
+    /**
+     * Logs the calling user in.
+     * @param credentials : The user's credentials.
+     * @return The never {@code null} login details.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
+    */
+    @Transactional(noRollbackFor = WrongPasswordException.class)
     public AuthDto login(UsernamePassword credentials)
-    throws AuthenticationException, EntityNotFoundException, IllegalArgumentException, SecurityException {
+    throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
 
-        Validator.requireFilled(credentials.getUsername(), "username");
-        Validator.requireFilled(credentials.getPassword(), "password");
+        validatorService.validateCredentials(credentials);
+        User user = userRepository.findFullByUsername(credentials.getUsername());
 
-        User entity = repository.findByUsername(credentials.getUsername());
+        if(user == null) {
 
-        if(entity != null) {
+            throw new AuthenticationException(ErrorFactory.create(
 
-            if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), entity.getPassword()).verified == true) {
+                ErrorCode.USER_NOT_FOUND, "UserService::login -> User not found", credentials.getUsername()
+            ));
+        }
 
-                List<OperationDto> operations = operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity));
-                UserDto user = mapper.mapIntoDto(entity);
+        long now = System.currentTimeMillis();
 
-                user.setPassword(null);
-                user.setOperations(operations);
+        if(user.getLockedUntil() >= now) {
 
-                String sessionId = sessionService.generate(
-                    
-                    user.getId(),
-                    user.getUsername(),
-                    user.getOperations().stream().map(OperationDto::getId).collect(Collectors.toSet())
-                );
+            throw new AuthorizationException(ErrorFactory.create(
 
-                return(new AuthDto(user, sessionId));
-            }
+                ErrorCode.USER_LOCKED, "UserService::login -> User is locked", user.getLockedUntil(), user.getLockReason()
+            ));
+        }
 
-            else {
+        if(user.getPasswordLastChangedAt() + passwordExpirationTime < now) {
 
-                throw new AuthenticationException(ErrorFactory.generate(ErrorCode.WRONG_PASSWORD));
-            }
+            throw new AuthorizationException(ErrorFactory.create(
+
+                ErrorCode.USER_PASSWORD_EXPIRED, "UserService::login -> User password expired", user.getPasswordLastChangedAt()
+            ));
+        }
+
+        if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), user.getPassword()).verified == true) {
+
+            user.setFailedAccesses((short)0);
+            userRepository.save(user);
+
+            Session session = sessionService.generate(user.getId(), user.getUsername(), user.getRole());
+
+            log.info("User {} logged in", user.getId());
+            return(new AuthDto(map(user, false), session.getId(), session.getExpiresAt()));
         }
 
         else {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, credentials.getUsername()));
+            if(user.getFailedAccesses() > loginFailures) {
+
+                user.setLockedUntil(now + (userLockTime * (2 << (user.getFailedAccesses() - loginFailures))));
+                user.setLockReason(LockReason.TOO_MANY_FAILED_LOGINS.getValue());
+
+                sessionService.removeAll(user.getId());
+            }
+
+            user.setFailedAccesses((short)(user.getFailedAccesses() + 1));
+            userRepository.save(user);
+
+            log.info("User {} failed to login", user.getId());
+            throw new WrongPasswordException(ErrorFactory.create(ErrorCode.WRONG_PASSWORD, "UserService::login -> Wrong password"));
         }
     }
 
     ///..
-    public void logout(String sessionId) {
+    /**
+     * Logs the calling user out of the specified session.
+     * @param session : The session of the calling user.
+     * @throws AuthenticationException If authentication fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
+    public void logout(Session session) throws AuthenticationException, DataAccessException, NullPointerException {
 
-        sessionService.remove(sessionId);
+        sessionService.remove(session.getId());
+        log.info("User {} logged out from single session", session.getUserId());
     }
 
     ///..
-    public List<UserDto> getAllUsers(String username, String email, String createdAtRange, String updatedAtRange, String operations)
-    throws IllegalArgumentException {
+    /**
+     * Logs the calling user out of all sessions.
+     * @param session : The session of the calling user.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
+    public void logoutAll(Session session) throws NullPointerException {
 
-        List<Long> dates = parse(createdAtRange, updatedAtRange);
-
-        return(mapper.mapIntoDtos(repository.findAll(new UserSpecification(
-
-            username,
-            email,
-            dates.get(0),
-            dates.get(1),
-            dates.get(2),
-            dates.get(3),
-            operations.length() == 0 ? null : operations.split(",")
-        ))));
+        sessionService.removeAll(session.getUserId());
+        log.info("User {} logged out from all sessions", session.getUserId());
     }
 
     ///..
+    /**
+     * Gets all the users that match the provided search filter.
+     * @param session : The session of the calling user.
+     * @param searchFilter : The search filer.
+     * @return The never {@code null} list of minimal user details.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
+    public List<UserDto> getAllUsers(Session session, UserSearchFilterDto searchFilter)
+    throws DataAccessException, IllegalArgumentException, NullPointerException {
+
+        validatorService.validateSearchFilter(searchFilter);
+        sessionService.check(session.getId(), Action.SEARCH_USERS.getAllowedRoles(), null, "Cannot search users");
+
+        PageRequest pageRequest = PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize());
+        List<User> fetchedUsers;
+
+        if(searchFilter.getUsernamePattern() != null && searchFilter.getEmailPattern() != null) {
+
+            fetchedUsers = userRepository.findAllMinimalByUsernameAndEmail(
+
+                searchFilter.getUsernamePattern(),
+                searchFilter.getEmailPattern(),
+                pageRequest
+            );
+        }
+
+        else if(searchFilter.getUsernamePattern() != null) {
+
+            fetchedUsers = userRepository.findAllMinimalByUsername(searchFilter.getUsernamePattern(), pageRequest);
+        }
+
+        else if(searchFilter.getEmailPattern() != null) {
+
+            fetchedUsers = userRepository.findAllMinimalByEmail(searchFilter.getEmailPattern(), pageRequest);
+        }
+
+        else if(searchFilter.getSubscribedTo() == null) {
+
+            fetchedUsers = userRepository.findAllMinimalByFilters(
+
+                searchFilter.getRoles(),
+                searchFilter.getCreatedAtStart(),
+                searchFilter.getCreatedAtEnd(),
+                searchFilter.getUpdatedAtStart(),
+                searchFilter.getUpdatedAtEnd(),
+                searchFilter.getCreatedBy(),
+                searchFilter.getUpdatedBy(),
+                searchFilter.getLockedCheckMode(),
+                System.currentTimeMillis(),
+                searchFilter.getExpiredPasswordCheckMode(),
+                passwordExpirationTime,
+                searchFilter.getFailedAccesses(),
+                pageRequest
+            );
+        }
+
+        else {
+
+            fetchedUsers = userRepository.findAllMinimalByFilters(
+
+                searchFilter.getSubscribedTo(),
+                searchFilter.getRoles(),
+                searchFilter.getCreatedAtStart(),
+                searchFilter.getCreatedAtEnd(),
+                searchFilter.getUpdatedAtStart(),
+                searchFilter.getUpdatedAtEnd(),
+                searchFilter.getCreatedBy(),
+                searchFilter.getUpdatedBy(),
+                searchFilter.getLockedCheckMode(),
+                System.currentTimeMillis(),
+                searchFilter.getExpiredPasswordCheckMode(),
+                passwordExpirationTime,
+                searchFilter.getFailedAccesses(),
+                pageRequest
+            );
+        }
+
+        return(fetchedUsers.stream().map(e -> this.mapMinimal(e)).toList());
+    }
+
+    ///..
+    /**
+     * Gets the details of the specified user.
+     * @param session : The session of the calling user.
+     * @param id : The id of the target user.
+     * @return The never {@code null} user details.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If {@code id} doesn't match to any user.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
+    public UserDto getUserById(Session session, long id)
+    throws DataAccessException, EntityNotFoundException, NullPointerException {
+
+        User user = userRepository.findFullById(id);
+
+        if(user == null) {
+
+            throw new EntityNotFoundException(ErrorFactory.create(
+
+                ErrorCode.USER_NOT_FOUND, "UserService::getUserById -> User not found", id
+            ));
+        }
+
+        return(this.map(
+
+            user, Action.SEE_PRIVATE_OTHERS.getAllowedRoles().contains(session.getUserRole()) || session.getUserId() == id
+        ));
+    }
+
+    ///..
+    /**
+     * Updates the specified user with the provided parameters.
+     * @param session : The session of the calling user.
+     * @param userDetails : The new user details to be merged with the existing ones.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user doesn't exist.
+     * @throws IllegalActionException If the calling user attempts to perform an illegal action.
+     * @throws IllegalArgumentException If {@code userDetails} doesn't pass validation.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
     @Transactional
-    public UserDto getUserById(long id) throws EntityNotFoundException {
+    public void updateUser(Session session, UserDto userDetails) throws AuthenticationException, AuthorizationException,
+    DataAccessException, EntityNotFoundException, IllegalActionException, IllegalArgumentException, NullPointerException {
 
-        User entity = repository.findById(id);
+        validatorService.validateAndSanitize(userDetails, true);
 
-        if(entity != null) {
+        User user = userRepository.findById(userDetails.getId()).orElseThrow(() -> {
 
-            UserDto user = mapper.mapIntoDto(entity);
+            return(new EntityNotFoundException(ErrorFactory.create(
 
-            user.setPassword(null);
-            user.setOperations(operationMapper.mapIntoDtos(operationRepository.findAllByUser(entity)));
+                ErrorCode.USER_NOT_FOUND, "UserService::updateUser -> User not found", userDetails.getId()
+            )));
+        });
 
-            return(user);
+        boolean isNotSelf = session.getUserId() != user.getId();
+        long now = System.currentTimeMillis();
+
+        if(isNotSelf == false && user.getLockedUntil() >= now) {
+
+            throw new AuthorizationException(ErrorFactory.create(
+
+                ErrorCode.USER_LOCKED,
+                "UserService::updateUser -> User is locked",
+                user.getLockedUntil(),
+                user.getLockReason()
+            ));
         }
 
-        else {
+        boolean roleChanged = false;
+        boolean userChanged = false;
+        boolean passwordChanged = false;
+        StringBuilder updatedColumns = new StringBuilder();
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND));
+        if(userDetails.getPassword() != null) {
+
+            if(isNotSelf) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the password of others"
+                ));
+            }
+
+            validatorService.validatePassword(userDetails.getPassword(), "password");
+
+            if(BCrypt.verifyer().verify(userDetails.getPassword().toCharArray(), user.getPassword()).verified == true) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_SAME_PASSWORD, "UserService::updateUser -> New password is equal to old password"
+                ));
+            }
+
+            user.setPassword(BCrypt.withDefaults().hashToString(bcryptEffort, userDetails.getPassword().toCharArray()));
+            user.setPasswordLastChangedAt(now);
+
+            userChanged = true;
+            passwordChanged = true;
+
+            updatedColumns.append("password,password_last_changed_at");
+        }
+
+        if(userDetails.getEmail() != null) {
+
+            if(isNotSelf) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the email of others"
+                ));
+            }
+
+            validatorService.validateEmail(userDetails.getEmail(), "email");
+
+            user.setEmail(userDetails.getEmail());
+
+            userChanged = true;
+            updatedColumns.append("email,");
+        }
+
+        if(userDetails.getAbout() != null) {
+
+            if(isNotSelf) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the about of others"
+                ));
+            }
+
+            validatorService.validateAbout(userDetails.getAbout(), "about");
+
+            user.setAbout(userDetails.getAbout());
+
+            userChanged = true;
+            updatedColumns.append("about,");
+        }
+
+        if(userDetails.getRole() != null) {
+
+            if(isNotSelf == false) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the role of self"
+                ));
+            }
+
+            sessionService.check(
+
+                session.getId(),
+                Action.CHANGE_ROLE_OTHERS.getAllowedRoles(),
+                user.getRole(),
+                "Cannot change the role"
+            );
+
+            user.setRole(userDetails.getRole());
+
+            userChanged = true;
+            roleChanged = true;
+
+            updatedColumns.append("role,");
+        }
+
+        if(userDetails.getLockedUntil() != null) {
+
+            if(isNotSelf == false) {
+
+                throw new IllegalActionException(ErrorFactory.create(
+
+                    ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the lock date of self"
+                ));
+            }
+
+            sessionService.check(
+
+                session.getId(),
+                Action.CHANGE_LOCK_DATE_OTHERS.getAllowedRoles(),
+                user.getRole(),
+                "Cannot change the lock date"
+            );
+
+            validatorService.requireNotNull(userDetails.getLockReason(), "lockReason");
+
+            user.setLockedUntil(userDetails.getLockedUntil());
+            user.setLockReason(userDetails.getLockReason());
+
+            userChanged = true;
+            updatedColumns.append("locked_until,lock_reason");
+        }
+
+        if(userChanged) {
+
+            String username = session.getUsername();
+
+            user.setUpdatedAt(now);
+            user.setUpdatedBy(username);
+            user = userRepository.save(user);
+
+            updatedColumns.deleteCharAt(updatedColumns.length() - 1);
+            auditRepository.save(new Audit(user, AuditAction.UPDATED, username, updatedColumns.toString()));
+
+            if(roleChanged && passwordChanged == false) sessionService.updateRole(session.getUserId(), user.getRole());
+            if(passwordChanged) sessionService.removeAll(session.getUserId());
         }
     }
 
     ///..
+    /**
+     * Deletes the specified user and removes all of its sessions.
+     * @param session : The session of the calling user.
+     * @param id : The id of the target user.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user is not found.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
     @Transactional
-    public void updateUser(String username, long requestingUserId, UserDto user, boolean canModifyOthers)
-    throws AuthorizationException, EntityExistsException, EntityNotFoundException, IllegalArgumentException {
+    public void deleteUser(Session session, long id)
+    throws AuthenticationException, AuthorizationException, DataAccessException, EntityNotFoundException, NullPointerException {
 
-        Validator.validateAuditedObject(user);
-        Validator.requireNotNull(user.getId(), "id");
+        if(session.getUserId() != id) {
 
-        User entity = repository.findById((long)user.getId());
+            sessionService.check(
 
-        if(entity != null) {
-
-            if(entity.getId() == requestingUserId || (entity.getId() != requestingUserId && canModifyOthers)) {
-
-                StringBuilder columns = new StringBuilder();
-
-                if(user.getUsername() != null) {
-
-                    Validator.requireFilled(user.getUsername(), "username");
-
-                    if(repository.existsByUsername(user.getUsername()) == false) {
-
-                        entity.setUsername(user.getUsername());
-                        columns.append("username,");
-                    }
-
-                    else {
-
-                        throw new EntityExistsException(ErrorFactory.generate(ErrorCode.USER_ALREADY_EXISTS, user.getUsername()));
-                    }
-                }
-
-                if(user.getPassword() != null) {
-
-                    Validator.requireFilled(user.getPassword(), "password");
-                    entity.setPassword(BCrypt.withDefaults().hashToString(effort, user.getPassword().toCharArray()));
-                    columns.append("password,");
-                }
-
-                if(user.getEmail() != null) {
-
-                    entity.setEmail(user.getEmail());
-                    columns.append("email,");
-                }
-
-                if(user.getFlags() != null) {
-
-                    entity.setFlags(user.getFlags());
-                    columns.append("flags,");
-                }
-
-                List<UserOperation> userOperations = new ArrayList<>();
-
-                if(user.getOperations() != null) {
-
-                    if(entity.getId() != requestingUserId) {
-
-                        List<Operation> operations = operationRepository.findAllByName(
-
-                            user.getOperations()
-                                .stream()
-                                .map(OperationDto::getName)
-                                .toList()
-                        );
-
-                        operations.forEach(o -> userOperations.add(new UserOperation(0, entity, o)));
-                        entity.setOperations(userOperations);
-                        columns.append("operations,");
-                    }
-
-                    else {
-
-                        throw new AuthorizationException(ErrorFactory.generate(ErrorCode.ILLEGAL_ACTION));
-                    }
-                }
-
-                entity.getInstantAudit().setUpdatedAt(System.currentTimeMillis());
-                entity.getInstantAudit().setUpdatedBy(username);
-
-                columns.deleteCharAt(columns.length() - 1);
-
-                repository.save(entity);
-                auditRepository.saveAll(AuditUtils.updateUserAudit(entity, userOperations, columns.toString()));
-            }
-
-            else {
-
-                throw new AuthorizationException(ErrorFactory.generate(ErrorCode.ILLEGAL_ACTION));
-            }
+                session.getId(),
+                Action.DELETE_OTHERS.getAllowedRoles(),
+                UserRole.ADMINISTRATOR,
+                "Cannot delete others"
+            );
         }
 
-        else {
+        User user = userRepository.findById(id).orElseThrow(() -> {
 
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, Long.toString(user.getId())));
-        }
-    }
+            return(new EntityNotFoundException(ErrorFactory.create(
 
-    ///..
-    @Transactional
-    public void deleteUser(String username, long id) throws EntityNotFoundException {
+                ErrorCode.USER_NOT_FOUND, "UserService::updateUser -> User not found", id
+            )));
+        });
 
-        User entity = repository.findByIdMinimal(id);
-
-        if(entity != null) {
-
-            auditRepository.saveAll(AuditUtils.deleteUserAudit(entity, System.currentTimeMillis(), username));
-            repository.delete(entity);
-        }
-
-        else {
-
-            throw new EntityNotFoundException(ErrorFactory.generate(ErrorCode.USER_NOT_FOUND, Long.toString(id)));
-        }
+        sessionService.removeAll(id);
+        userRepository.delete(user);
+        auditRepository.save(new Audit(user, AuditAction.DELETED, session.getUsername(), null));
     }
 
     ///.
-    private List<Long> parse(String createdAtRange, String updatedAtRange) throws IllegalArgumentException {
+    private UserDto map(User user, boolean privateMode) throws NullPointerException {
 
-        List<Long> dates = new ArrayList<>();
+        List<SubscriptionDto> subscriptions = new ArrayList<>(user.getSubscriptions().size());
 
-        dates.addAll(parseSingle(createdAtRange));
-        dates.addAll(parseSingle(updatedAtRange));
+        for(Subscription subscription : user.getSubscriptions()) {
 
-        return(dates);
+            subscriptions.add(new SubscriptionDto(
+
+                subscription.getId(),
+                subscription.getPublisher().getId(),
+                subscription.isNotify(),
+                subscription.getCreatedAt(),
+                subscription.getUpdatedAt()
+            ));
+        }
+
+        return(new UserDto(
+
+            user.getId(),
+            user.getUsername(),
+            null,
+            privateMode ? user.getEmail() : null,
+            user.getProfilePicture() != null ? Base64.getEncoder().encodeToString(user.getProfilePicture()) : null,
+            user.getAbout(),
+            user.getRole(),
+            privateMode ? user.getFailedAccesses() : null,
+            privateMode ? user.getLockedUntil() : null,
+            privateMode ? user.getLockReason() : null,
+            privateMode ? user.getPasswordLastChangedAt() : null,
+            user.getCreatedAt(),
+            user.getCreatedBy(),
+            user.getUpdatedAt(),
+            user.getUpdatedBy(),
+            privateMode ? subscriptions : null
+        ));
     }
 
     ///..
-    private List<Long> parseSingle(String dateRange) throws IllegalArgumentException {
+    private UserDto mapMinimal(User user) throws NullPointerException {
 
-        List<Long> dates = new ArrayList<>();
+        return(new UserDto(
 
-        if(dateRange.length() > 0) {
-
-            String[] splits = dateRange.split(",");
-
-            try {
-
-                if(splits.length == 1) dates.add(Long.parseLong(splits[1]));
-                if(splits.length == 2) dates.add(Long.parseLong(splits[2]));
-            }
-
-            catch(NumberFormatException exc) {
-
-                throw new IllegalArgumentException(ErrorFactory.generate(ErrorCode.BAD_FORMAT, splits[1]));
-            }
-        }
-
-        else {
-
-            dates.add(null);
-            dates.add(null);
-        }
-
-        return(dates);
+            user.getId(),
+            user.getUsername(),
+            null,
+            user.getEmail(),
+            null,
+            null,
+            user.getRole(),
+            user.getFailedAccesses(),
+            user.getLockedUntil(),
+            user.getLockReason(),
+            user.getPasswordLastChangedAt(),
+            user.getCreatedAt(),
+            user.getCreatedBy(),
+            user.getUpdatedAt(),
+            user.getUpdatedBy(),
+            null
+        ));
     }
 
     ///

@@ -8,6 +8,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 ///
+/**
+ * <h3>Username Password</h3>
+ * Ingoing-only DTO for user login HTTP requests.
+*/
+
+///
 @Getter
 @Setter
 @JsonIgnoreProperties(ignoreUnknown = true)

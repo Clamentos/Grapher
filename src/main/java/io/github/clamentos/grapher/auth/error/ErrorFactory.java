@@ -1,44 +1,40 @@
 package io.github.clamentos.grapher.auth.error;
 
 ///
-import io.github.clamentos.grapher.auth.utility.Constants;
+/**
+ * <h3>Error Factory</h3>
+ * Static class dedicated to constructing parametrized exception detail messages.
+*/
 
 ///
 public final class ErrorFactory {
 
     ///
-    public static String generate(ErrorCode errorCode, String... args) {
+    // Forbids instantiation.
+    private ErrorFactory() {}
 
-        StringBuilder builder = new StringBuilder(composePrefix(errorCode));
+    ///
+    /**
+     * <p>Constructs a parametrized exception details message with the following formatting:</p>
+     * {@code <message>|<errorCode>|args[0]|args[1]|...}, the {@code |} (character represents the ASCII {@code 0x1}).
+     * @param errorCode : The error code.
+     * @param message : The extra message.
+     * @param args : The message arguments.
+     * @return The never {@code null} details message.
+     * @throws NullPointerException If {@code args} is {@code null}.
+    */
+    public static String create(ErrorCode errorCode, String message, Object... args) throws NullPointerException {
 
-        for(String arg : args) {
+        StringBuilder stringBuilder = new StringBuilder(message);
+        stringBuilder.append("\1");
 
-            builder.append(arg).append(Constants.ERROR_ARG_SEPARATOR);
-        }
+        if(errorCode == null) stringBuilder.append("EC999\1");
+        else stringBuilder.append(errorCode.getValue()).append("\1");
 
-        builder.deleteCharAt(builder.length() - 1);
-        return(builder.toString());
-    }
+        for(Object arg : args) stringBuilder.append(arg.toString()).append("\1");
 
-    ///..
-    public static String generate(ErrorCode errorCode, Iterable<?> args) {
-
-        StringBuilder builder = new StringBuilder(composePrefix(errorCode));
-
-        for(Object arg : args) {
-
-            builder.append(arg.toString()).append(Constants.ERROR_ARG_SEPARATOR);
-        }
-
-        builder.deleteCharAt(builder.length() - 1);
-        return(builder.toString());
-    }
-
-    ///.
-    private static String composePrefix(ErrorCode errorCode) {
-
-        if(errorCode == null) return("EC999" + Constants.ERROR_CODE_SEPARATOR);
-        return(errorCode.getValue() + Constants.ERROR_CODE_SEPARATOR);
+        stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        return(stringBuilder.toString());
     }
 
     ///
