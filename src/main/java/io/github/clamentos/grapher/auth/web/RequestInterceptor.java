@@ -82,7 +82,7 @@ public class RequestInterceptor implements HandlerInterceptor {
 
         String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String method = request.getMethod();
-        String key = uri + method;
+        String key = method + uri;
 
         if(authenticationExcludedPaths.contains(key) == false) {
 

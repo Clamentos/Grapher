@@ -31,6 +31,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 ///
+/**
+ * <h3>Consumer</h3>
+ * Spring {@link Component} dedicated to handle AMQP auth requests from the other microservices.
+*/
+
+///
 @Component
 
 ///
@@ -41,6 +47,7 @@ public class Consumer {
     private final SessionService sessionService;
 
     ///
+    /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
     public Consumer(Producer producer, SessionService sessionService) {
 
@@ -49,6 +56,11 @@ public class Consumer {
     }
 
     ///
+    /**
+     * Handles auth requests from the {@code Graph} microservice.
+     * @param authRequest : The request to handle.
+     * @apiNote This method will subsequently call the {@link Consumer} in order to send the response.
+    */
     @RabbitListener(queues = "GraphMsToAuthMsQueue")
     public void processFromGraphMs(AuthRequest authRequest) {
 
@@ -56,6 +68,11 @@ public class Consumer {
     }
 
     ///..
+    /**
+     * Handles auth requests from the {@code Message} microservice.
+     * @param authRequest : The request to handle.
+     * @apiNote This method will subsequently call the {@link Consumer} in order to send the response.
+    */
     @RabbitListener(queues = "MessageMsToAuthMsQueue")
     public void processFromMessageMs(AuthRequest authRequest) {
 
@@ -63,7 +80,7 @@ public class Consumer {
     }
 
     ///.
-    private void processAndRespond(AuthRequest authRequest, String destination) {
+    private void processAndRespond(AuthRequest authRequest, String destination) throws NullPointerException {
 
         Session session = null;
         String errorCode = null;
@@ -78,23 +95,27 @@ public class Consumer {
                     authRequest.getSessionId(),
                     authRequest.getRequiredRoles(),
                     authRequest.getMinimumRequiredRole(),
-                    "Consumer::processAndRespond -> Check failed for source: " + destination
+                    "Check failed for source: " + destination
                 );   
             }
 
-            else errorCode = ErrorCode.VALIDATOR_REQUIRE_NOT_NULL.getValue();
+            else errorCode = ErrorCode.VALIDATOR_REQUIRE_NOT_NULL.name();
         }
 
         catch(AuthenticationException | AuthorizationException exc) {
 
             String[] splits = exc.getMessage().split("\1");
-            errorCode = splits[0];
+            
+            if(splits.length > 1) {
 
-            if(splits.length > 2) {
+                errorCode = splits[0];
 
-                for(int i = 2; i < splits.length; i++) {
+                if(splits.length > 2) {
 
-                    errorArguments.add(splits[i]);
+                    for(int i = 2; i < splits.length; i++) {
+
+                        errorArguments.add(splits[i]);
+                    }
                 }
             }
         }

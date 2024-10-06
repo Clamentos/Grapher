@@ -49,10 +49,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param id : The target user id.
      * @return The possibly {@code null}, fully populated user entity.
     */
-    @Query(
-
-        value = "SELECT u FROM User AS u LEFT JOIN FETCH u.subscribers AS s LEFT JOIN FETCH LEFT u.subscriptions AS ss WHERE u.id = ?1"
-    )
+    @Query(value = "SELECT u FROM User AS u LEFT JOIN FETCH u.subscriptions AS ss WHERE u.id = ?1")
     User findFullById(long id);
 
     ///..
@@ -61,11 +58,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param username : The target username.
      * @return The possibly {@code null}, fully populated user entity.
     */
-    @Query(
-
-        value = "SELECT u FROM User AS u LEFT JOIN FETCH u.subscribers AS s LEFT JOIN FETCH LEFT u.subscriptions AS ss " + 
-                "WHERE u.username = ?1"
-    )
+    @Query(value = "SELECT u FROM User AS u LEFT JOIN FETCH u.subscriptions AS ss WHERE u.username = ?1")
     User findFullByUsername(String username);
 
     ///..
@@ -120,8 +113,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param createdAtEnd : The user creation end date.
      * @param updatedAtStart : The user update start date.
      * @param updatedAtEnd : The user update start date.
-     * @param createdBy : The list of usernames of creation. (can be {@code null}, but not empty).
-     * @param updatedBy : The list of usernames of update. (can be {@code null}, but not empty).
+     * @param createdByNames : The list of usernames of creation. (can be {@code null}, but not empty).
+     * @param updatedByNames : The list of usernames of update. (can be {@code null}, but not empty).
      * @param lockedCheckMode : The locked flag. {@code true} if the users must be locked, {@code false} otherwise,
      * {@code null} if ignore.
      * @param now : The current UNIX timestamp, used to check for expired accounts / expired passwords.
@@ -135,15 +128,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     */
     @Query(
 
-        value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.passwordLastChangedAt, " +
-        "u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.role IN :ro " +
+        value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.lockReason, " +
+        "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.role IN :ro " +
         "AND u.createdAt BETWEEN :cs AND :ce " +
         "AND u.updatedAt BETWEEN :us AND :ue " +
         "AND (:cb is not null AND u.createdBy IN :cb) " +
         "AND (:ub is not null AND u.updatedBy IN :ub) " +
         "AND u.failedAccesses >= :fa " +
         "AND ((:lcm = true AND u.lockedUntil >= :now) OR (:lcm = false AND u.lockedUntil < :now) OR :lcm is null) " +
-        "AND ((:pcm = true AND u.passwordLastChangedAt + :pco < :now) OR (:pcm = false AND u.passwordLastChangedAt + :pco >= :now) OR :pcm = is null)"
+        "AND ((:pcm = true AND u.passwordLastChangedAt + :pco < :now) OR (:pcm = false AND u.passwordLastChangedAt + :pco >= :now) OR :pcm is null)"
     )
     List<User> findAllMinimalByFilters(
 
@@ -152,8 +145,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
         @Param("ce") long createdAtEnd,
         @Param("us") long updatedAtStart,
         @Param("ue") long updatedAtEnd,
-        @Param("cb") List<String> createdBy,
-        @Param("ub") List<String> updatedBy,
+        @Param("cb") List<String> createdByNames,
+        @Param("ub") List<String> updatedByNames,
         @Param("lcm") Boolean lockedCheckMode,
         @Param("now") long now,
         @Param("pcm") Boolean passwordCheckMode,
@@ -171,8 +164,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param createdAtEnd : The user creation end date.
      * @param updatedAtStart : The user update start date.
      * @param updatedAtEnd : The user update start date.
-     * @param createdBy : The list of usernames of creation. (can be {@code null}, but not empty).
-     * @param updatedBy : The list of usernames of update. (can be {@code null}, but not empty).
+     * @param createdByNames : The list of usernames of creation. (can be {@code null}, but not empty).
+     * @param updatedByNames : The list of usernames of update. (can be {@code null}, but not empty).
      * @param lockedCheckMode : The locked flag. {@code true} if the users must be locked, {@code false} otherwise,
      * {@code null} if ignore.
      * @param now : The current UNIX timestamp, used to check for expired accounts / expired passwords.
@@ -186,17 +179,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
     */
     @Query(
 
-        value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.passwordLastChangedAt, " +
-        "u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u INNER JOIN Subscription AS s" +
-        "WHERE s.publisher IN :st " +
+        value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.lockReason, " +
+        "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u INNER JOIN u.subscriptions AS s " +
+        "INNER JOIN s.publisher AS p WHERE p.username IN :st " +
         "AND u.role IN :ro " +
         "AND u.createdAt BETWEEN :cs AND :ce " +
         "AND u.updatedAt BETWEEN :us AND :ue " +
         "AND (:cb is not null AND u.createdBy IN :cb) " +
         "AND (:ub is not null AND u.updatedBy IN :ub) " +
         "AND u.failedAccesses >= :fa " +
-        "AND ((:lcm = true AND u.lockedUntil >= :now) OR (:lcm = false AND u.lockedUntil < :now) OR :lcm = is null) " +
-        "AND ((:pcm = true AND u.passwordLastChangedAt + :pco < :now) OR (:pcm = false AND u.passwordLastChangedAt + :pco >= :now) OR :pcm = is null)"
+        "AND ((:lcm = true AND u.lockedUntil >= :now) OR (:lcm = false AND u.lockedUntil < :now) OR :lcm is null) " +
+        "AND ((:pcm = true AND u.passwordLastChangedAt + :pco < :now) OR (:pcm = false AND u.passwordLastChangedAt + :pco >= :now) OR :pcm is null)"
     )
     List<User> findAllMinimalByFilters(
 
@@ -206,8 +199,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
         @Param("ce") long createdAtEnd,
         @Param("us") long updatedAtStart,
         @Param("ue") long updatedAtEnd,
-        @Param("cb") List<String> createdBy,
-        @Param("ub") List<String> updatedBy,
+        @Param("cb") List<String> createdByNames,
+        @Param("ub") List<String> updatedByNames,
         @Param("lcm") Boolean lockedCheckMode,
         @Param("now") long now,
         @Param("pcm") Boolean passwordCheckMode,

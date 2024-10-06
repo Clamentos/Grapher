@@ -15,8 +15,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 ///..
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
+///..
+import java.time.format.DateTimeFormatter;
 
 ///..
 import java.util.ArrayList;
@@ -63,6 +66,7 @@ public class DatabaseLogsWriter {
 
     ///..
     private final Pattern pattern;
+    private final DateTimeFormatter formatter;
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
@@ -73,61 +77,47 @@ public class DatabaseLogsWriter {
         logsPath = environment.getProperty("grapher-auth.logsPath", String.class);
 
         pattern = Pattern.compile("\\|");
+        formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss.SSS");
     }
 
     ///
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(cron = "1/60 * * * * *")
     private void dump() {
 
+        log.info("Logs dump start");
+
+        try { Thread.sleep(2000); }
+        catch(InterruptedException exc) {}
+
         try {
+
+            boolean[] halt = new boolean[]{false}; // Used as an "indirect" variable.
 
             List<Path> paths = Files
 
                 .list(Paths.get(logsPath))
                 .filter(path -> Files.isDirectory(path) == false)
+                .sorted((first, second) -> second.getFileName().compareTo(first.getFileName()))
+                .skip(1)
                 .toList()
             ;
 
-            if(paths.size() > 1) {
+            if(halt[0] == false) {
 
-                boolean[] halt = new boolean[]{false}; // Used as an "indirect" variable.
+                for(Path path : paths) {
 
-                paths.sort((first, second) -> {
-
-                    try {
-
-                        FileTime firstTime = Files.readAttributes(first, BasicFileAttributes.class).creationTime(); 
-                        FileTime secondTime = Files.readAttributes(first, BasicFileAttributes.class).creationTime(); 
-
-                        return(secondTime.compareTo(firstTime));
-                    }
-
-                    catch(IOException exc) {
-
-                        log.error("Could not read file attributes, will abort the job. {}", exc);
-                        halt[0] = true;
-
-                        return(Integer.MAX_VALUE);
-                    }
-                });
-
-                if(halt[0] == false) {
-
-                    paths.remove(0);
-
-                    for(Path path : paths) {
-
-                        this.write(Files.readAllLines(path));
-                        Files.delete(path);
-                    }
+                    this.write(Files.readAllLines(path));
+                    Files.delete(path);
                 }
             }
         }
 
         catch(IOException | RuntimeException exc) {
 
-            log.error("Could not process files, will abort the job. {}", exc);
+            log.error("Could not process files, will abort the job", exc);
         }
+
+        log.info("Logs dump end");
     }
 
     ///..
@@ -135,11 +125,13 @@ public class DatabaseLogsWriter {
 
         List<Log> logs = new ArrayList<>(lines.size());
         long now = System.currentTimeMillis();
-        
+
         for(String line : lines) {
 
-            String[] sections = pattern.split(line);
-            logs.add(new Log(0, Long.parseLong(sections[0]), sections[1], sections[2], sections[3], sections[4], now));
+            String[] sections = pattern.split(line); // section[0] is the initial '|'
+            long timestamp = LocalDateTime.parse(sections[1], formatter).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+            logs.add(new Log(0, timestamp, sections[2], sections[3], sections[4], sections[5], now));
         }
 
         logRepository.saveAll(logs);

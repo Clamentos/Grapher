@@ -1,9 +1,11 @@
 package io.github.clamentos.grapher.auth.configuration;
 
 ///..
-import io.github.clamentos.grapher.auth.business.communication.CustomMessageConverter;
 import io.github.clamentos.grapher.auth.business.communication.Producer;
+
+///..
 import io.github.clamentos.grapher.auth.business.services.SessionService;
+
 ///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
@@ -23,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 ///.
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 
 ///..
@@ -69,27 +72,37 @@ public class AppConfiguration implements WebMvcConfigurer {
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public AppConfiguration(SessionService sessionService) { // TODO: insert all the auth mappings
+    public AppConfiguration(SessionService sessionService) {
 
         this.sessionService = sessionService;
 
         authenticationExcludedPaths = new HashSet<>();
-        authenticationExcludedPaths.add("POST/v1/grapher/user/register");
-        authenticationExcludedPaths.add("POST/v1/grapher/user/login");
+
+        authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/register");
+        authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/login");
+        authenticationExcludedPaths.add("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability");
+
+        Set<UserRole> admin = Set.of(UserRole.ADMINISTRATOR);
+        Set<UserRole> privileged = Set.of(UserRole.ADMINISTRATOR, UserRole.MODERATOR);
 
         authorizationMappings = new ConcurrentHashMap<>();
-        authorizationMappings.put("GET/v1/grapher/auth/observability/status", Set.of(UserRole.ADMINISTRATOR));
-        authorizationMappings.put("DELETE/v1/grapher/user/logout", Set.of());
-        authorizationMappings.put("DELETE/v1/grapher/user/logout/all", Set.of());
-        authorizationMappings.put("GET/v1/grapher/user", Set.of(UserRole.ADMINISTRATOR, UserRole.MODERATOR));
-        authorizationMappings.put("GET/v1/grapher/user/{id}", Set.of());
-        authorizationMappings.put("PATCH/v1/grapher/user", Set.of());
-        authorizationMappings.put("POST/v1/grapher/user/{id}/subscriptions", Set.of());
-        authorizationMappings.put("PATCH/v1/grapher/user/{id}/subscriptions", Set.of());
-        authorizationMappings.put("PATCH/v1/grapher/user/{id}/notifications", Set.of());
-        authorizationMappings.put("DELETE/v1/grapher/user/{id}", Set.of());
-        authorizationMappings.put("DELETE/v1/grapher/user/{id}/subscriptions", Set.of());
-        authorizationMappings.put("DELETE/v1/grapher/user/{id}/notifications", Set.of());
+
+        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/status", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/audits", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/logs", admin);
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/grapher/v1/auth-service/observability/audits", admin);
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/grapher/v1/auth-service/observability/logs", admin);
+
+        authorizationMappings.put("POST/grapher/v1/auth-service/user/subscriptions", Set.of());
+        authorizationMappings.put("PATCH/grapher/v1/auth-service/user/subscriptions", Set.of());
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/user/subscriptions", Set.of());
+
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/user/logout", Set.of());
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/user/logout/all", Set.of());
+        authorizationMappings.put("GET/grapher/v1/auth-service/user/search", privileged);
+        authorizationMappings.put("GET/grapher/v1/auth-service/user/{id}", Set.of());
+        authorizationMappings.put("PATCH/grapher/v1/auth-service/user", Set.of());
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/user", Set.of());
     }
 
     ///
@@ -114,7 +127,7 @@ public class AppConfiguration implements WebMvcConfigurer {
     @Bean
     public MessageConverter messageConverterBean() {
 
-        return(new CustomMessageConverter());
+        return(new Jackson2JsonMessageConverter("io.github.clamentos.grapher.auth"));
     }
 
     ///

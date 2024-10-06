@@ -1,9 +1,12 @@
 package io.github.clamentos.grapher.auth.web.controllers;
 
+///
 import io.github.clamentos.grapher.auth.business.services.UserService;
+
 ///..
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+import io.github.clamentos.grapher.auth.error.exceptions.IllegalActionException;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.Session;
@@ -20,9 +23,6 @@ import jakarta.persistence.EntityNotFoundException;
 
 ///.
 import java.util.List;
-
-///..
-import java.util.concurrent.CompletionException;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 ///
 @RestController
-@RequestMapping(path = "/grapher/v1/user") // TODO: revise exceptions
+@RequestMapping(path = "/grapher/v1/auth-service/user")
 
 ///
 public final class UserController {
@@ -60,8 +60,12 @@ public final class UserController {
 
     ///
     @PostMapping(path = "/register", consumes = "application/json")
-    public ResponseEntity<Void> register(@RequestAttribute(name = "session") Session session, @RequestBody UserDto userDetails)
-    throws DataAccessException, EntityExistsException, IllegalArgumentException {
+    public ResponseEntity<Void> register(
+
+        @RequestAttribute(name = "session", required = false) Session session,
+        @RequestBody UserDto userDetails
+
+    ) throws DataAccessException, EntityExistsException, IllegalArgumentException {
 
         userService.register(session, userDetails);
         return(ResponseEntity.ok().build());
@@ -70,7 +74,7 @@ public final class UserController {
     ///..
     @PostMapping(path = "/login", consumes = "application/json", produces = "application/json")
     public ResponseEntity<AuthDto> login(@RequestBody UsernamePassword credentials)
-    throws AuthenticationException, AuthorizationException, DataAccessException, EntityNotFoundException, IllegalArgumentException {
+    throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(userService.login(credentials)));
     }
@@ -78,7 +82,7 @@ public final class UserController {
     ///..
     @DeleteMapping(path = "/logout")
     public ResponseEntity<Void> logout(@RequestAttribute(name = "session") Session session)
-    throws DataAccessException, NullPointerException {
+    throws AuthenticationException, DataAccessException {
 
         userService.logout(session);
         return(ResponseEntity.ok().build());
@@ -86,7 +90,7 @@ public final class UserController {
 
     ///..
     @DeleteMapping(path = "/logout/all")
-    public ResponseEntity<Void> logoutAll(@RequestAttribute(name = "session") Session session) throws NullPointerException {
+    public ResponseEntity<Void> logoutAll(@RequestAttribute(name = "session") Session session) {
 
         userService.logoutAll(session);
         return(ResponseEntity.ok().build());
@@ -99,7 +103,7 @@ public final class UserController {
         @RequestAttribute(name = "session") Session session,
         @RequestBody UserSearchFilterDto searchFilter
 
-    ) throws DataAccessException, IllegalArgumentException, NullPointerException {
+    ) throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(userService.getAllUsers(session, searchFilter)));
     }
@@ -119,7 +123,8 @@ public final class UserController {
     ///..
     @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updateUser(@RequestAttribute(name = "session") Session session, @RequestBody UserDto userDetails)
-    throws CompletionException, DataAccessException, EntityNotFoundException, IllegalArgumentException, NullPointerException {
+    throws AuthenticationException, AuthorizationException, DataAccessException, EntityNotFoundException, IllegalActionException,
+    IllegalArgumentException {
 
         userService.updateUser(session, userDetails);
         return(ResponseEntity.ok().build());
@@ -128,7 +133,7 @@ public final class UserController {
     ///..
     @DeleteMapping(path = "/{id}")
     public ResponseEntity<Void> deleteUser(@RequestAttribute(name = "session") Session session, @PathVariable(name = "id") long id)
-    throws AuthorizationException, DataAccessException, NullPointerException {
+    throws AuthorizationException, DataAccessException {
 
         userService.deleteUser(session, id);
         return(ResponseEntity.ok().build());

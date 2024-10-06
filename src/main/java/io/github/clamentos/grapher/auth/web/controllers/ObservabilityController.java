@@ -32,6 +32,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
 
 ///..
+import org.springframework.dao.DataAccessException;
+
+///..
 import org.springframework.http.ResponseEntity;
 
 ///..
@@ -52,7 +55,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 ///
 @RestController
-@RequestMapping(path = "grapher/v1/auth/observability")
+@RequestMapping(path = "grapher/v1/auth-service/observability")
 
 ///
 public final class ObservabilityController {
@@ -125,14 +128,16 @@ public final class ObservabilityController {
 
     ///..
     @GetMapping(path = "/audits", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<List<Audit>> getAllAuditsByFilter(@RequestBody AuditSearchFilter searchFilter) {
+    public ResponseEntity<List<Audit>> getAllAuditsByFilter(@RequestBody AuditSearchFilter searchFilter)
+    throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(observabilityService.getAllAuditsByFilter(searchFilter)));
     }
 
     ///..
     @GetMapping(path = "/logs", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<List<Log>> getAllLogsByFilter(@RequestBody LogSearchFilter searchFilter) {
+    public ResponseEntity<List<Log>> getAllLogsByFilter(@RequestBody LogSearchFilter searchFilter)
+    throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(observabilityService.getAllLogsByFilter(searchFilter)));
     }
@@ -143,7 +148,8 @@ public final class ObservabilityController {
 
         @RequestParam(name = "start") long start,
         @RequestParam(name = "end") long end
-    ) {
+
+    ) throws DataAccessException {
 
         observabilityService.deleteAllAuditsByPeriod(start, end);
         return(ResponseEntity.ok().build());
@@ -155,7 +161,8 @@ public final class ObservabilityController {
 
         @RequestParam(name = "start") long start,
         @RequestParam(name = "end") long end
-    ) {
+
+    ) throws DataAccessException {
 
         observabilityService.deleteAllLogsByPeriod(start, end);
         return(ResponseEntity.ok().build());

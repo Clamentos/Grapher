@@ -3,9 +3,10 @@ package io.github.clamentos.grapher.auth.business.services;
 ///
 import io.github.clamentos.grapher.auth.error.ErrorCode;
 import io.github.clamentos.grapher.auth.error.ErrorFactory;
+
+///..
 import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
 import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
-///..
 import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
@@ -21,35 +22,52 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 ///
+/**
+ * <h3>Validator Service</h3>
+ * Spring {@link Service} that provides DTO validation methods.
+*/
+
+///
 @Service
 
 ///
-public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
+public class ValidatorService {
 
     ///
-    private final Pattern aboutPattern;
     private final Pattern usernamePattern;
     private final Pattern emailPattern;
     private final Pattern passwordPattern;
     private final int maxImageSize;
 
     ///
+    /** This class is a Spring bean and this constructor should never be called explicitly. */
     public ValidatorService() {
 
-        aboutPattern = Pattern.compile("...");
-        usernamePattern = Pattern.compile("...");
+        usernamePattern = Pattern.compile("^[a-zA-Z0-9-_.]{3,32}$");
         emailPattern = Pattern.compile("^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$");
-        passwordPattern = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{10,50}$");
+        passwordPattern = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$");
         maxImageSize = 275252; // ceil(256*256*3*1.4)
     }
 
     ///
+    /**
+     * Checks if the input object is null.
+     * @param obj : The target object.
+     * @param name : The name of the object.
+     * @throws IllegalArgumentException If {@code obj} is not {@code null}.
+    */
     public void requireNull(Object obj, String name) throws IllegalArgumentException {
 
         if(obj != null) throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_NULL, "", name));
     }
 
     ///..
+    /**
+     * Checks if the input collection is null or empty.
+     * @param coll : The target collection.
+     * @param name : The name of the collection.
+     * @throws IllegalArgumentException If {@code coll} is filled.
+    */
     public void requireNullOrEmpty(Collection<?> coll, String name) throws IllegalArgumentException {
 
         if(coll != null && coll.size() != 0)
@@ -57,6 +75,12 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Checks if the input collection is null or filled.
+     * @param coll : The target collection.
+     * @param name : The name of the collection.
+     * @throws IllegalArgumentException If {@code coll} is empty.
+    */
     public void requireNullOrFilled(Collection<?> coll, String name) throws IllegalArgumentException {
 
         if(coll != null && coll.size() == 0)
@@ -64,12 +88,24 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Checks if the input object is not null.
+     * @param obj : The target object.
+     * @param name : The name of the object.
+     * @throws IllegalArgumentException If {@code obj} is {@code null}.
+    */
     public void requireNotNull(Object obj, String name) throws IllegalArgumentException {
 
         if(obj == null) throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_NOT_NULL, "", name));
     }
 
     ///..
+    /**
+     * Checks if the input string is filled.
+     * @param str : The target string.
+     * @param name : The name of the string.
+     * @throws IllegalArgumentException If {@code str} is {@code null} or empty.
+    */
     public void requireFilled(String str, String name) throws IllegalArgumentException {
 
         if(str == null || str.length() == 0)
@@ -77,6 +113,12 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Checks if the input collection is filled.
+     * @param coll : The target collection.
+     * @param name : The name of the collection.
+     * @throws IllegalArgumentException If {@code coll} is not filled.
+    */
     public void requireFilled(Collection<?> coll, String name) throws IllegalArgumentException {
 
         if(coll == null || coll.size() == 0)
@@ -84,6 +126,13 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Checks if the input collection is filled as well as its elements.
+     * @param coll : The target collection.
+     * @param name : The name of the collection.
+     * @param elemName : The name of the elements.
+     * @throws IllegalArgumentException If {@code coll} is not filled or one of its elements is {@code null}.
+    */
     public void requireFullyFilled(Collection<?> coll, String name, String elemName) throws IllegalArgumentException {
 
         if(coll == null || coll.size() == 0)
@@ -93,6 +142,12 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates a username with the following regex: ^[a-zA-Z0-9._-]{3,32}$.
+     * @param username : The target username.
+     * @param name : The name of the field.
+     * @throws IllegalArgumentException If {@code username} doesn't pass validation.
+    */
     public void validateUsername(String username, String name) throws IllegalArgumentException {
 
         if(username == null || username.length() == 0 || usernamePattern.matcher(username).matches() == false)
@@ -100,6 +155,12 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates a password with the following regex: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{10,32}$.
+     * @param password : The target password.
+     * @param name : The name of the field.
+     * @throws IllegalArgumentException If {@code password} doesn't pass validation.
+    */
     public void validatePassword(String password, String name) throws IllegalArgumentException {
 
         if(password == null || password.length() == 0 || passwordPattern.matcher(password).matches() == false)
@@ -107,6 +168,12 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates an email with the following regex: ^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$.
+     * @param email : The target email.
+     * @param name : The name of the field.
+     * @throws IllegalArgumentException If {@code email} doesn't pass validation.
+    */
     public void validateEmail(String email, String name) throws IllegalArgumentException {
 
         if(email != null && email.length() > 0 && emailPattern.matcher(email).matches() == false)
@@ -114,24 +181,30 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
-    public void validateAbout(String about, String name) throws IllegalArgumentException {
-
-        if(about != null && about.length() > 0 || aboutPattern.matcher(about).matches() == false)
-            throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.BAD_FORMAT, "", name));
-    }
-
-    ///..
+    /**
+     * Validates and sanitizes the provided user details for registration or update.
+     * @param userDetails : The target user details.
+     * @param isUpdate : {@code true} if update mode, {@code false} otherwise.
+     * @throws IllegalArgumentException If {@code userDetails} doesn't pass validation.
+    */
     public void validateAndSanitize(UserDto userDetails, boolean isUpdate) throws IllegalArgumentException {
 
         this.requireNotNull(userDetails, "body");
 
         if(isUpdate) {
 
+            this.requireNotNull(userDetails.getId(), "id");
+            this.requireNull(userDetails.getUsername(), "username");
+            this.requireNull(userDetails.getFailedAccesses(), "failedAccesses");
+            this.requireNull(userDetails.getPasswordLastChangedAt(), "passwordLastChangedAt");
+        }
+
+        else {
+
             this.requireNull(userDetails.getId(), "id");
             this.validateUsername(userDetails.getUsername(), "username");
             this.validatePassword(userDetails.getPassword(), "password");
             this.validateEmail(userDetails.getEmail(), "email");
-            this.validateAbout(userDetails.getAbout(), "about");
             this.requireNull(userDetails.getRole(), "role");
             this.requireNull(userDetails.getFailedAccesses(), "failedAccesses");
             this.requireNull(userDetails.getLockedUntil(), "lockedUntil");
@@ -152,14 +225,6 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
             }
         }
 
-        else {
-
-            this.requireNotNull(userDetails.getId(), "id");
-            this.requireNull(userDetails.getUsername(), "username");
-            this.requireNull(userDetails.getFailedAccesses(), "failedAccesses");
-            this.requireNull(userDetails.getPasswordLastChangedAt(), "passwordLastChangedAt");
-        }
-
         this.requireNull(userDetails.getCreatedAt(), "createdAt");
         this.requireNull(userDetails.getUpdatedAt(), "updatedAt");
         this.requireNull(userDetails.getCreatedBy(), "createdBy");
@@ -168,6 +233,11 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates the provided user login credentials.
+     * @param credentials : The target login credentials.
+     * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
+    */
     public void validateCredentials(UsernamePassword credentials) throws IllegalArgumentException {
 
         this.requireNotNull(credentials, "body");
@@ -176,27 +246,37 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
-    public void validateSearchFilter(UserSearchFilterDto filter) throws IllegalArgumentException {
+    /**
+     * Validates the provided user search filter.
+     * @param searchFilter : The target search filter.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+    */
+    public void validateSearchFilter(UserSearchFilterDto searchFilter) throws IllegalArgumentException {
 
-        this.requireNotNull(filter, "body");
-        this.requireNotNull(filter.getPageNumber(), "pageNumber");
-        this.requireNotNull(filter.getPageSize(), "pageSize");
+        this.requireNotNull(searchFilter, "body");
+        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
+        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
 
-        if(filter.getUsernamePattern() == null && filter.getEmailPattern() == null) {
+        if(searchFilter.getUsernameLike() == null && searchFilter.getEmailLike() == null) {
 
-            this.requireFilled(filter.getRoles(), "roles");
-            this.requireNotNull(filter.getCreatedAtStart(), "createdAtStart");
-            this.requireNotNull(filter.getCreatedAtEnd(), "createdAtEnd");
-            this.requireNullOrFilled(filter.getCreatedBy(), "createdBy");
-            this.requireNotNull(filter.getUpdatedAtStart(), "updatedAtStart");
-            this.requireNotNull(filter.getUpdatedAtEnd(), "updatedAtEnd");
-            this.requireNullOrFilled(filter.getUpdatedBy(), "updatedBy");
-            this.requireNullOrFilled(filter.getSubscribedTo(), "subscribedTo");
-            this.requireNotNull(filter.getFailedAccesses(), "failedAccesses");
+            this.requireFilled(searchFilter.getRoles(), "roles");
+            this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
+            this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
+            this.requireNullOrFilled(searchFilter.getCreatedByNames(), "createdBy");
+            this.requireNotNull(searchFilter.getUpdatedAtStart(), "updatedAtStart");
+            this.requireNotNull(searchFilter.getUpdatedAtEnd(), "updatedAtEnd");
+            this.requireNullOrFilled(searchFilter.getUpdatedByNames(), "updatedBy");
+            this.requireNullOrFilled(searchFilter.getSubscribedToNames(), "subscribedTo");
+            this.requireNotNull(searchFilter.getFailedAccesses(), "failedAccesses");
         }
     }
 
     ///..
+    /**
+     * Validates the provided user subscription.
+     * @param subscription : The target user subscription.
+     * @throws IllegalArgumentException If {@code subscription} doesn't pass validation.
+    */
     public void validateSubscription(SubscriptionDto subscription) throws IllegalArgumentException {
 
         this.requireNotNull(subscription, "body");
@@ -208,6 +288,11 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates the provided user subscriptions.
+     * @param subscriptions : The target user subscriptions.
+     * @throws IllegalArgumentException If {@code subscriptions} doesn't pass validation.
+    */
     public void validateSubscriptions(Iterable<SubscriptionDto> subscriptions) throws IllegalArgumentException {
 
         this.requireNotNull(subscriptions, "body");
@@ -223,15 +308,41 @@ public class ValidatorService { //TODO: patterns & jdoc & finish 2 validators
     }
 
     ///..
+    /**
+     * Validates the provided audit search filter.
+     * @param searchFilter : The target search filter.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+    */
     public void validateAuditSearchFilter(AuditSearchFilter searchFilter) throws IllegalArgumentException {
 
-        //...
+        this.requireNotNull(searchFilter, "body");
+        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
+        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
+        this.requireFilled(searchFilter.getTableNames(), "tableNames");
+        this.requireFilled(searchFilter.getAuditActions(), "auditActions");
+        this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
+        this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
+        this.requireNullOrFilled(searchFilter.getCreatedByNames(), "createdByNames");
     }
 
     ///..
+    /**
+     * Validates the provided log search filter.
+     * @param searchFilter : The target search filter.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+    */
     public void validateLogSearchFilter(LogSearchFilter searchFilter) throws IllegalArgumentException {
 
-        // ...
+        this.requireNotNull(searchFilter, "body");
+        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
+        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
+        this.requireNotNull(searchFilter.getTimestampStart(), "timestampStart");
+        this.requireNotNull(searchFilter.getTimestampEnd(), "timestampEnd");
+        this.requireFilled(searchFilter.getLevels(), "levels");
+        this.requireFilled(searchFilter.getThreads(), "threads");
+        this.requireNotNull(searchFilter.getMessage(), "message");
+        this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
+        this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
     }
 
     ///

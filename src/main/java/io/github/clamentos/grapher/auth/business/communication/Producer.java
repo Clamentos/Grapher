@@ -22,6 +22,12 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 ///
+/**
+ * <h3>Producer</h3>
+ * Spring {@link Component} dedicated to send auth responses to other microservices.
+*/
+
+///
 @Component
 @Slf4j
 
@@ -32,6 +38,7 @@ public class Producer {
     private final RabbitTemplate template;
 
     ///
+    /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
     public Producer(RabbitTemplate template) {
 
@@ -39,6 +46,12 @@ public class Producer {
     }
 
     ///
+    /**
+     * Sends the auth response to the specified destination.
+     * @param destination : The target destination.
+     * @param authResponse : The response message.
+     * @apiNote If the response message cannot be delivered for any reason, it will simply be dropped.
+    */
     @Async
     public void respondToAuthRequest(String destination, AuthResponse authResponse) {
 

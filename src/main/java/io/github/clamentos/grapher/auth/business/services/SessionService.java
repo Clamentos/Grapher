@@ -115,7 +115,7 @@ public class SessionService {
     @Transactional
     public Session generate(long userId, String username, UserRole role) throws AuthorizationException, DataAccessException {
 
-        int count = userSessionCounters.computeIfAbsent(userId, k -> new AtomicInteger(1)).getAndUpdate(current -> {
+        int count = userSessionCounters.computeIfAbsent(userId, k -> new AtomicInteger(0)).getAndUpdate(current -> {
 
             int attempt = current + 1;
             if(attempt <= maxSessionsPerUser) return(attempt);
@@ -292,7 +292,7 @@ public class SessionService {
 
     ///.
     @Scheduled(fixedRate = 300000)
-    private void removeAllExpired() {
+    protected void removeAllExpired() {
 
         log.info("Starting expired session cleaning task...");
         long now = System.currentTimeMillis();

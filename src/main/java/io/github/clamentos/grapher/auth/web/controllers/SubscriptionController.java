@@ -1,6 +1,8 @@
 package io.github.clamentos.grapher.auth.web.controllers;
 
+///
 import io.github.clamentos.grapher.auth.business.services.SubscriptionService;
+
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.Session;
 
@@ -33,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 ///
 @RestController
-@RequestMapping(path = "/grapher/v1/user/subscriptions")
+@RequestMapping(path = "/grapher/v1/auth-service/user/subscriptions")
 
 ///
 public class SubscriptionController {
@@ -77,7 +79,7 @@ public class SubscriptionController {
     ///..
     @DeleteMapping(consumes = "application/json")
     public ResponseEntity<Void> unsubscribe(@RequestAttribute(name = "session") Session session, @RequestBody List<Long> subscriptionIds)
-    throws DataAccessException {
+    throws DataAccessException, IllegalArgumentException {
 
         subscriptionService.unsubscribe(session, subscriptionIds);
         return(ResponseEntity.ok().build());

@@ -204,7 +204,7 @@ public class UserService {
             Session session = sessionService.generate(user.getId(), user.getUsername(), user.getRole());
 
             log.info("User {} logged in", user.getId());
-            return(new AuthDto(map(user, false), session.getId(), session.getExpiresAt()));
+            return(new AuthDto(map(user, true), session.getId(), session.getExpiresAt()));
         }
 
         else {
@@ -212,7 +212,7 @@ public class UserService {
             if(user.getFailedAccesses() > loginFailures) {
 
                 user.setLockedUntil(now + (userLockTime * (2 << (user.getFailedAccesses() - loginFailures))));
-                user.setLockReason(LockReason.TOO_MANY_FAILED_LOGINS.getValue());
+                user.setLockReason(LockReason.TOO_MANY_FAILED_LOGINS.name());
 
                 sessionService.removeAll(user.getId());
             }
@@ -270,27 +270,27 @@ public class UserService {
         PageRequest pageRequest = PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize());
         List<User> fetchedUsers;
 
-        if(searchFilter.getUsernamePattern() != null && searchFilter.getEmailPattern() != null) {
+        if(searchFilter.getUsernameLike() != null && searchFilter.getEmailLike() != null) {
 
             fetchedUsers = userRepository.findAllMinimalByUsernameAndEmail(
 
-                searchFilter.getUsernamePattern(),
-                searchFilter.getEmailPattern(),
+                searchFilter.getUsernameLike(),
+                searchFilter.getEmailLike(),
                 pageRequest
             );
         }
 
-        else if(searchFilter.getUsernamePattern() != null) {
+        else if(searchFilter.getUsernameLike() != null) {
 
-            fetchedUsers = userRepository.findAllMinimalByUsername(searchFilter.getUsernamePattern(), pageRequest);
+            fetchedUsers = userRepository.findAllMinimalByUsername(searchFilter.getUsernameLike(), pageRequest);
         }
 
-        else if(searchFilter.getEmailPattern() != null) {
+        else if(searchFilter.getEmailLike() != null) {
 
-            fetchedUsers = userRepository.findAllMinimalByEmail(searchFilter.getEmailPattern(), pageRequest);
+            fetchedUsers = userRepository.findAllMinimalByEmail(searchFilter.getEmailLike(), pageRequest);
         }
 
-        else if(searchFilter.getSubscribedTo() == null) {
+        else if(searchFilter.getSubscribedToNames() == null) {
 
             fetchedUsers = userRepository.findAllMinimalByFilters(
 
@@ -299,8 +299,8 @@ public class UserService {
                 searchFilter.getCreatedAtEnd(),
                 searchFilter.getUpdatedAtStart(),
                 searchFilter.getUpdatedAtEnd(),
-                searchFilter.getCreatedBy(),
-                searchFilter.getUpdatedBy(),
+                searchFilter.getCreatedByNames(),
+                searchFilter.getUpdatedByNames(),
                 searchFilter.getLockedCheckMode(),
                 System.currentTimeMillis(),
                 searchFilter.getExpiredPasswordCheckMode(),
@@ -314,14 +314,14 @@ public class UserService {
 
             fetchedUsers = userRepository.findAllMinimalByFilters(
 
-                searchFilter.getSubscribedTo(),
+                searchFilter.getSubscribedToNames(),
                 searchFilter.getRoles(),
                 searchFilter.getCreatedAtStart(),
                 searchFilter.getCreatedAtEnd(),
                 searchFilter.getUpdatedAtStart(),
                 searchFilter.getUpdatedAtEnd(),
-                searchFilter.getCreatedBy(),
-                searchFilter.getUpdatedBy(),
+                searchFilter.getCreatedByNames(),
+                searchFilter.getUpdatedByNames(),
                 searchFilter.getLockedCheckMode(),
                 System.currentTimeMillis(),
                 searchFilter.getExpiredPasswordCheckMode(),
@@ -466,8 +466,6 @@ public class UserService {
                 ));
             }
 
-            validatorService.validateAbout(userDetails.getAbout(), "about");
-
             user.setAbout(userDetails.getAbout());
 
             userChanged = true;
@@ -521,7 +519,7 @@ public class UserService {
             validatorService.requireNotNull(userDetails.getLockReason(), "lockReason");
 
             user.setLockedUntil(userDetails.getLockedUntil());
-            user.setLockReason(userDetails.getLockReason());
+            user.setLockReason(LockReason.CUSTOM.name() + "|" + userDetails.getLockReason());
 
             userChanged = true;
             updatedColumns.append("locked_until,lock_reason");

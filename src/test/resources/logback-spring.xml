@@ -9,28 +9,26 @@
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>
-                [ %blue(%d{dd-MM-yyyy HH:mm:ss.SSS XXX}) ][ %highlightex(%-5p) ][ %magenta(%t) ][ %cyan(%logger{0}) ][ %m %ex]%n
+                [ %blue(%d{dd-MM-yyyy HH:mm:ss.SSS}) ][ %highlightex(%-5p) ][ %magenta(%t) ][ %cyan(%logger{0}) ][ %m %ex]%n
             </pattern>
         </encoder>
     </appender>
 
-    <appender name="DB" class="io.github.clamentos.grapher.auth.logging.DatabaseAppender">
+    <appender name="ROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">
 
-        <filePath>./logBuffer.log</filePath>
-        <bufferSize>4096</bufferSize>
-        <taskSleepAmount>2000</taskSleepAmount>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>./logs/AuthLogs.%d{yyyy-MM-dd_HH-mm}.log</fileNamePattern>
+        </rollingPolicy>
 
-        <patternLayout class="ch.qos.logback.classic.PatternLayout">
-            <pattern>
-                %d{dd-MM-yyyy HH:mm:ss.SSS XXX}~%-5p~%t~%logger{0}~%m
-            </pattern>
-        </patternLayout>
+        <encoder>
+            <pattern>|%d{dd-MM-yyyy HH:mm:ss.SSS}|%-5p|%t|%logger{0}|%replace(%m %ex){'\n','~'}|%n</pattern>
+        </encoder>
 
     </appender>
 
     <root level="info">
         <appender-ref ref="STDOUT"/>
-        <appender-ref ref="DB"/>
+        <appender-ref ref="ROLLER"/>
     </root>
 
 </configuration>

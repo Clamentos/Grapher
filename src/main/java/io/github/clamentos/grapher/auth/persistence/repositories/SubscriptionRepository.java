@@ -32,7 +32,7 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
      * @param userId : The target user id to further filter the search.
      * @return The never {@code null} list of found subscription entities.
     */
-    @Query("SELECT s FROM Subscription AS s INNER JOIN s.subscriber AS ss WHERE s.id IN ?1 AND ss.id ?2")
+    @Query("SELECT s FROM Subscription AS s INNER JOIN s.subscriber AS ss WHERE s.id IN ?1 AND ss.id = ?2")
     List<Subscription> findAllByIdsAndUser(Iterable<Long> ids, long userId);
 
     ///

@@ -22,6 +22,9 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 ///.
+import org.springframework.dao.DataAccessException;
+
+///..
 import org.springframework.http.ResponseEntity;
 
 ///.
@@ -75,6 +78,20 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
     ///..
     /**
+     * Handle {@link DataAccessException} and respond with a {@code 422}.
+     * @param exc : The target exception to handle.
+     * @param request : The associated web request.
+     * @return The never {@code null} HTTP response with the error details.
+    */
+    @ExceptionHandler(value = DataAccessException.class)
+    public ResponseEntity<ErrorDto> handleDataAccessException(DataAccessException exc, WebRequest request) {
+
+        log.error("{}: {}", exc.getClass().getSimpleName(), exc.getMessage());
+        return(constructError(exc, request, 422));
+    }
+
+    ///..
+    /**
      * Handle {@link EntityNotFoundException} and respond with a {@code 404}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
@@ -116,13 +133,11 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
     private ResponseEntity<ErrorDto> constructError(RuntimeException exc, WebRequest request, int status) {
 
         String message = exc.getMessage() != null ? exc.getMessage() : "";
-        log.error(message);
-
-        String[] splits = message.split("\1");
-        String errorCode = ErrorCode.getDefault().getValue();
+        String[] splits = message.split("/");
+        ErrorCode errorCode = ErrorCode.getDefault();
         List<String> arguments = new ArrayList<>();
 
-        if(splits.length >= 2) errorCode = splits[1];
+        if(splits.length >= 2) errorCode = ErrorCode.valueOf(splits[1]);
 
         if(splits.length >= 3) {
 

@@ -3,53 +3,57 @@ package io.github.clamentos.grapher.auth.error;
 ///
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 
 ///
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Getter
 
 ///
-public enum ErrorCode { // TODO: finish
+/**
+ * <h3>Error Code</h3>
+ * Simple enumeration containing all the possible standard request failures.
+*/
+
+///
+public enum ErrorCode {
 
     ///
-    INVALID_AUTH_HEADER("EC000"),
-    EXPIRED_SESSION("EC001"),
-    ILLEGAL_ACTION("EC002"),
-    ILLEGAL_ACTION_SAME_USER(""),
-    ILLEGAL_ACTION_DIFFERENT_USER(""),
-    ILLEGAL_ACTION_SAME_PASSWORD(""),
-    WRONG_PASSWORD("EC003"),
-    NOT_ENOUGH_PRIVILEGES("EC004"),
+    INVALID_AUTH_HEADER,
 
-    USER_NOT_FOUND("EC005"),
-    USER_ALREADY_EXISTS("EC006"),
-    USER_LOCKED("EC007"),
-    USER_PASSWORD_EXPIRED(""),
+    SESSION_NOT_FOUND,
+    EXPIRED_SESSION,
+    TOO_MANY_SESSIONS,
+    WRONG_PASSWORD,
+    NOT_ENOUGH_PRIVILEGES,
 
-    BAD_FORMAT("EC008"),
-    VALIDATOR_REQUIRE_NULL("EC009"),
-    VALIDATOR_REQUIRE_NULL_OR_EMPTY(""),
-    VALIDATOR_REQUIRE_NOT_NULL("EC010"),
-    VALIDATOR_REQUIRE_FILLED("EC011"),
-    VALIDATOR_PASSWORD_TOO_WEAK("EC012"),
-    VALIDATOR_BAD_EMAIL(""),
-    VALIDATOR_BAD_USERNAME(""),
-    VALIDATOR_IMAGE_TOO_LARGE(""),
-    VALIDATOR_REQUIRE_NULL_OR_FILLED(""),
+    ILLEGAL_ACTION,
+    ILLEGAL_ACTION_SAME_USER,
+    ILLEGAL_ACTION_DIFFERENT_USER,
+    ILLEGAL_ACTION_SAME_PASSWORD,
 
-    SUBSCRIPTION_NOT_FOUND(""),
+    VALIDATOR_BAD_FORMAT,
+    VALIDATOR_REQUIRE_NULL,
+    VALIDATOR_REQUIRE_NULL_OR_EMPTY,
+    VALIDATOR_REQUIRE_NOT_NULL,
+    VALIDATOR_REQUIRE_FILLED,
+    VALIDATOR_REQUIRE_NULL_OR_FILLED,
+    VALIDATOR_PASSWORD_TOO_WEAK,
+    VALIDATOR_BAD_EMAIL,
+    VALIDATOR_BAD_USERNAME,
+    VALIDATOR_IMAGE_TOO_LARGE,
 
-    TOO_MANY_SESSIONS("EC013"),
-    SESSION_NOT_FOUND("EC014"),
-    DEFAULT("EC999");
+    USER_NOT_FOUND,
+    USER_ALREADY_EXISTS,
+    USER_LOCKED,
+    USER_PASSWORD_EXPIRED,
 
-    ///
-    private final String value;
+    SUBSCRIPTION_NOT_FOUND,
+
+    CUSTOM,
+    UNCATEGORIZED;
 
     ///
     /** @return The never {@code null} default error code. */
-    public static ErrorCode getDefault() { return(ErrorCode.DEFAULT); }
+    public static ErrorCode getDefault() { return(ErrorCode.UNCATEGORIZED); }
 
     ///
 }

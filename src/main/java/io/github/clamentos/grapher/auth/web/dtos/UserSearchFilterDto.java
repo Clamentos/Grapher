@@ -28,16 +28,16 @@ public final class UserSearchFilterDto {
     private Integer pageSize;
 
     ///..
-    private String usernamePattern;
-    private String emailPattern;
+    private String usernameLike;
+    private String emailLike;
     private List<UserRole> roles;
     private Long createdAtStart;
     private Long createdAtEnd;
-    private List<String> createdBy;
+    private List<String> createdByNames;
     private Long updatedAtStart;
     private Long updatedAtEnd;
-    private List<String> updatedBy;
-    private List<String> subscribedTo;
+    private List<String> updatedByNames;
+    private List<String> subscribedToNames;
     private Boolean lockedCheckMode;
     private Boolean expiredPasswordCheckMode;
     private Short failedAccesses;

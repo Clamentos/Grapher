@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.web.dtos;
 
 ///
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+
+///.
 import java.util.List;
 
 ///.
@@ -23,7 +26,7 @@ public final class ErrorDto {
     ///
     private final String url;
     private final long timestamp;
-    private final String errorCode;
+    private final ErrorCode errorCode;
     private final String message;
     private final List<String> parameters;
 

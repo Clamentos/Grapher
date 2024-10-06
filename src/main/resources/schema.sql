@@ -5,94 +5,72 @@ DROP SCHEMA IF EXISTS "public" CASCADE;
 CREATE SCHEMA IF NOT EXISTS "public";
 
 ---
-CREATE TABLE INSTANT_AUDIT (
-
-    id                  BIGSERIAL PRIMARY KEY,
-    created_at          BIGINT NOT NULL,
-    updated_at          BIGINT NOT NULL,
-    created_by          TEXT NOT NULL,
-    updated_by          TEXT NOT NULL
-);
-
----..
 CREATE TABLE AUDIT (
 
-    id                  BIGSERIAL PRIMARY KEY,
-    record_id           BIGINT NOT NULL,
-    table_name          TEXT NOT NULL,
-    columns             TEXT NOT NULL,
-    action              CHAR(1) NOT NULL,
-    created_at          BIGINT NOT NULL,
-    created_by          TEXT NOT NULL
-);
-
----..
-CREATE TABLE SESSION (
-
-    session_id          TEXT PRIMARY KEY,
-    user_id             BIGINT NOT NULL,
-    username            TEXT NOT NULL,
-    operation_ids       TEXT NOT NULL,
-    expires_at          BIGINT NOT NULL
-);
-
----..
-CREATE TABLE GRAPHER_USER (
-
-    id                  BIGINT PRIMARY KEY,
-    username            TEXT NOT NULL UNIQUE,
-    password            TEXT NOT NULL,
-    email               TEXT NOT NULL,
-    flags               SMALLINT NOT NULL,
-    instant_audit_id    BIGINT NOT NULL UNIQUE,
-
-    CONSTRAINT instant_audit_id_fk FOREIGN KEY(instant_audit_id) REFERENCES INSTANT_AUDIT(id) ON DELETE RESTRICT
-);
-
----..
-CREATE TABLE OPERATION (
-
-    id                  SMALLSERIAL PRIMARY KEY,
-    name                TEXT NOT NULL UNIQUE,
-    instant_audit_id    BIGINT NOT NULL UNIQUE,
-
-    CONSTRAINT instant_audit_id_fk FOREIGN KEY(instant_audit_id) REFERENCES INSTANT_AUDIT(id) ON DELETE RESTRICT
-);
-
----..
-CREATE TABLE USER_OPERATION (
-
-    id                  BIGSERIAL PRIMARY KEY,
-    user_id             BIGINT NOT NULL,
-    operation_id        SMALLINT NOT NULL,
-
-    CONSTRAINT user_id_fk FOREIGN KEY(user_id) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE,
-    CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE,
-    UNIQUE(user_id, operation_id)
-);
-
----..
-CREATE TABLE API_PERMISSION (
-
-    id                  BIGSERIAL PRIMARY KEY,
-    path                TEXT NOT NULL,
-    is_optional         BOOLEAN NOT NULL,
-    instant_audit_id    BIGINT NOT NULL UNIQUE,
-    operation_id        SMALLINT NOT NULL,
-
-    CONSTRAINT operation_id_fk FOREIGN KEY(operation_id) REFERENCES OPERATION(id) ON DELETE CASCADE,
-    UNIQUE(path, operation_id)
+    id                          BIGSERIAL PRIMARY KEY,
+    record_id                   BIGINT NOT NULL,
+    table_name                  TEXT NOT NULL,
+    columns                     TEXT NOT NULL,
+    action                      TEXT NOT NULL,
+    created_at                  BIGINT NOT NULL,
+    created_by                  TEXT NOT NULL
 );
 
 ---..
 CREATE TABLE LOG (
 
-    id                  BIGSERIAL PRIMARY KEY,
-    timestamp           TIMESTAMPTZ NOT NULL,
-    level               TEXT NOT NULL,
-    thread              TEXT NOT NULL,
-    logger              TEXT NOT NULL,
-    message             TEXT NOT NULL
+    id                          BIGSERIAL PRIMARY KEY,
+    timestamp                   BIGINT NOT NULL,
+    level                       TEXT NOT NULL,
+    thread                      TEXT NOT NULL,
+    logger                      TEXT NOT NULL,
+    message                     TEXT NOT NULL,
+    created_at                  BIGINT NOT NULL
+);
+
+---..
+CREATE TABLE SESSION (
+
+    id                          TEXT PRIMARY KEY,
+    user_id                     BIGINT NOT NULL,
+    username                    TEXT NOT NULL,
+    user_role                   TEXT NOT NULL,
+    expires_at                  BIGINT NOT NULL
+);
+
+---..
+CREATE TABLE GRAPHER_USER (
+
+    id                          BIGSERIAL PRIMARY KEY,
+    username                    TEXT NOT NULL UNIQUE,
+    password                    TEXT NOT NULL,
+    email                       TEXT NOT NULL,
+    profile_picture             BYTEA NULL,
+    about                       TEXT NOT NULL,
+    role                        TEXT NOT NULL,
+    failed_accesses             SMALLINT NOT NULL,
+    locked_until                BIGINT NOT NULL,
+    lock_reason                 TEXT NOT NULL,
+    password_last_changed_at    BIGINT NOT NULL,
+    created_at                  BIGINT NOT NULL,
+    created_by                  TEXT NOT NULL,
+    updated_at                  BIGINT NOT NULL,
+    updated_by                  TEXT NOT NULL
+);
+
+---..
+CREATE TABLE SUBSCRIPTION (
+
+    id                          BIGSERIAL PRIMARY KEY,
+    publisher                   BIGINT NOT NULL,
+    subscriber                  BIGINT NOT NULL,
+    notify                      BOOLEAN NOT NULL,
+    created_at                  BIGINT NOT NULL,
+    updated_at                  BIGINT NOT NULL,
+
+    CONSTRAINT subscription_pub_sub_unique UNIQUE(publisher, subscriber),
+    CONSTRAINT publisher_fk FOREIGN KEY(publisher) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE,
+    CONSTRAINT subscriber_fk FOREIGN KEY(subscriber) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE
 );
 
 ---

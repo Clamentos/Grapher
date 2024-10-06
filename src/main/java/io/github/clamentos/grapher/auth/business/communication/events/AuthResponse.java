@@ -13,7 +13,7 @@ import lombok.Getter;
 ///
 /**
  * <h3>Auth Response</h3>
- * DTO used as an authentication / authorization response broker event.
+ * Outgoing-only DTO used as an authentication / authorization response broker event.
 */
 
 ///
@@ -24,10 +24,9 @@ import lombok.Getter;
 public final class AuthResponse {
 
     ///
-    public static final String TYPE = "AuthResponse";
+    public static final transient String TYPE = "AuthResponse";
 
     ///.
-    /** This field is the AMQP {@code MessageProperties.correlationId}. It's only here to serve as a temporary hook. */
     private final String requestId;
 
     ///..

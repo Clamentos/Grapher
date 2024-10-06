@@ -23,6 +23,8 @@ import org.springframework.data.repository.query.Param;
 
 ///..
 import org.springframework.stereotype.Repository;
+
+///..
 import org.springframework.transaction.annotation.Transactional;
 
 ///
@@ -38,13 +40,28 @@ import org.springframework.transaction.annotation.Transactional;
 public interface AuditRepository extends JpaRepository<Audit, Long> {
 
     ///
+    /**
+     * Finds all the audits that match the given record id.
+     * @param recordId : The record id.
+     * @return The never {@code null} list of audits.
+    */
     @Query(value = "SELECT a FROM Audit AS a WHERE a.recordId = ?1")
     List<Audit> findAllByRecordId(long recordId);
 
     ///..
+    /**
+     * Finds all the audits that match the specified filter.
+     * @param tableNames : The name of the tables. (must never be {@code null} or empty).
+     * @param auditActions : The audit actions. (must never be {@code null} or empty).
+     * @param createdAtStart : The audit creation start date.
+     * @param createdAtEnd : The audit creation end date.
+     * @param createdByNames : The list of usernames of creation. (can be {@code null}, but not empty).
+     * @param pageRequest : The target page to fetch.
+     * @return The never {@code null} list of audits.
+    */
     @Query(
 
-        value = "SELECT a FROM Audit AS a WHERE a.tableName IN :tn AND a.auditAction IN :aa AND a.createdAt BETWEEN :cs AND :ce " +
+        value = "SELECT a FROM Audit AS a WHERE a.tableName IN :tn AND a.action IN :aa AND a.createdAt BETWEEN :cs AND :ce " +
                 "AND (:cb is null OR a.createdBy IN :cb)"
     )
     List<Audit> findAllByFilter(
@@ -58,6 +75,11 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     );
 
     ///..
+    /**
+     * Deletes all the audits that have been created in the specified period.
+     * @param start : The start of the period.
+     * @param end : The end of the period.
+    */
     @Transactional
     @Modifying
     @Query(value = "DELETE FROM Audit AS a WHERE a.createdAt BETWEEN ?1 AND ?2")
