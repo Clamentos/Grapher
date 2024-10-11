@@ -127,6 +127,13 @@ public final class ObservabilityController {
     }
 
     ///..
+    /**
+     * Gets all the audits that match the provided search filter.
+     * @param searchFilter : The search filer.
+     * @return The never {@code null} list of audits.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+    */
     @GetMapping(path = "/audits", consumes = "application/json", produces = "application/json")
     public ResponseEntity<List<Audit>> getAllAuditsByFilter(@RequestBody AuditSearchFilter searchFilter)
     throws DataAccessException, IllegalArgumentException {
@@ -135,6 +142,13 @@ public final class ObservabilityController {
     }
 
     ///..
+    /**
+     * Gets all the logs that match the provided search filter.
+     * @param searchFilter : The search filer.
+     * @return The never {@code null} list of logs.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+    */
     @GetMapping(path = "/logs", consumes = "application/json", produces = "application/json")
     public ResponseEntity<List<Log>> getAllLogsByFilter(@RequestBody LogSearchFilter searchFilter)
     throws DataAccessException, IllegalArgumentException {
@@ -143,6 +157,12 @@ public final class ObservabilityController {
     }
 
     ///..
+    /**
+     * Deletes all the audits that have been created in the specified period.
+     * @param start : The start of the period.
+     * @param end : The end of the period.
+     * @throws DataAccessException If any database access error occurs.
+    */
     @DeleteMapping(path = "/audits")
     public ResponseEntity<Void> deleteAllAuditsByPeriod(
 
@@ -156,6 +176,12 @@ public final class ObservabilityController {
     }
 
     ///..
+    /**
+     * Deletes all the logs that have been created in the specified period.
+     * @param start : The start of the period.
+     * @param end : The end of the period.
+     * @throws DataAccessException If any database access error occurs.
+    */
     @DeleteMapping(path = "/logs")
     public ResponseEntity<Void> deleteAllLogsByPeriod(
 

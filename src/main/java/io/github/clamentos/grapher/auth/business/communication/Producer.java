@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 ///
 /**
  * <h3>Producer</h3>
- * Spring {@link Component} dedicated to send auth responses to other microservices.
+ * Spring {@link Component} dedicated to send auth responses to the other microservices.
 */
 
 ///

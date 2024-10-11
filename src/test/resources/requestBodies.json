@@ -1,0 +1,76 @@
+{
+    "registerSuccessful": [
+
+        {
+            "username": "TestUser",
+            "password": "Password123?!",
+            "email": "TestUser@nonexistent.com",
+            "about": "I'm a testing user !"
+        }
+    ],
+
+    "registerInvalidDto": [
+
+        {
+            "username": null,
+            "password": "Password123?!"
+        },
+        {
+            "username": "TestUser",
+            "password": null
+        },
+        {
+            "username": "TestUserNotExists",
+            "password": "pwd1"
+        }
+    ],
+
+    "loginSuccessful": [
+
+        {
+            "username": "TestUser",
+            "password": "Password123?!"
+        }
+    ],
+
+    "loginUserNotFound": [
+
+        {
+            "username": "TestUserNotExists",
+            "password": "Password123?!"
+        }
+    ],
+
+    "loginWrongPassword": [
+
+        {
+            "username": "TestUser",
+            "password": "Password124?!"
+        }
+    ],
+
+    "loginInvalidDto": [
+
+        {
+            "username": null,
+            "password": "Password123?!"
+        }
+    ],
+
+    "searchUsers": [
+        {
+            "pageNumber": 0,
+            "pageSize": 10,
+            "usernameLike": "Test"
+        }
+    ],
+
+    "registerOtherSuccessful": [
+        {
+            "username": "TestUser2",
+            "password": "Password123?!",
+            "email": "TestUser2@nonexistent.com",
+            "about": "I'm a testing user 2 !"
+        }
+    ]
+}

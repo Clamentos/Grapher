@@ -45,6 +45,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 ///
+/**
+ * <h3>User Controller</h3>
+ * Spring {@link RestController} that exposes user account management APIs.
+*/
+
+///
 @RestController
 @RequestMapping(path = "/grapher/v1/auth-service/user")
 
@@ -55,10 +61,22 @@ public final class UserController {
     private final UserService userService;
 
     ///
+    /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public UserController(UserService userService) { this.userService = userService; }
+    public UserController(UserService userService) {
+
+        this.userService = userService;
+    }
 
     ///
+    /**
+     * Registers a new user with the specified details.
+     * @param session : The session of the calling user, if available.
+     * @param userDetails : The user details.
+     * @throws DataAccessException If any database access errors occur.
+     * @throws EntityExistsException If the specified user already exists.
+     * @throws IllegalArgumentException If {@code userDetails} fails validation.
+    */
     @PostMapping(path = "/register", consumes = "application/json")
     public ResponseEntity<Void> register(
 
@@ -72,6 +90,15 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Logs the calling user in.
+     * @param credentials : The user's credentials.
+     * @return The never {@code null} login details.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
+    */
     @PostMapping(path = "/login", consumes = "application/json", produces = "application/json")
     public ResponseEntity<AuthDto> login(@RequestBody UsernamePassword credentials)
     throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
@@ -80,6 +107,12 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Logs the calling user out of the specified session.
+     * @param session : The session of the calling user.
+     * @throws AuthenticationException If authentication fails.
+     * @throws DataAccessException If any database access error occurs.
+    */
     @DeleteMapping(path = "/logout")
     public ResponseEntity<Void> logout(@RequestAttribute(name = "session") Session session)
     throws AuthenticationException, DataAccessException {
@@ -89,6 +122,10 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Logs the calling user out of all sessions.
+     * @param session : The session of the calling user.
+    */
     @DeleteMapping(path = "/logout/all")
     public ResponseEntity<Void> logoutAll(@RequestAttribute(name = "session") Session session) {
 
@@ -97,20 +134,37 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Gets all the users that match the provided search filter.
+     * @param session : The session of the calling user.
+     * @param searchFilter : The search filer.
+     * @return The never {@code null} list of minimal user details.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+     * @throws NullPointerException If {@code session} is {@code null}.
+    */
     @GetMapping(path = "/search", produces = "application/json")
-    public ResponseEntity<List<UserDto>> getUsers(
+    public ResponseEntity<List<UserDto>> getAllUsersByFilter(
 
         @RequestAttribute(name = "session") Session session,
         @RequestBody UserSearchFilterDto searchFilter
 
     ) throws DataAccessException, IllegalArgumentException {
 
-        return(ResponseEntity.ok(userService.getAllUsers(session, searchFilter)));
+        return(ResponseEntity.ok(userService.getAllUsersByFilter(session, searchFilter)));
     }
 
     ///..
+    /**
+     * Gets the details of the specified user.
+     * @param session : The session of the calling user.
+     * @param id : The id of the target user.
+     * @return The never {@code null} user details.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If {@code id} doesn't match to any user.
+    */
     @GetMapping(value = "/{id}", produces = "application/json")
-    public ResponseEntity<UserDto> getUser(
+    public ResponseEntity<UserDto> getUserById(
 
         @RequestAttribute(name = "session") Session session,
         @PathVariable(name = "id") long id
@@ -121,6 +175,17 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Updates the specified user with the provided parameters.
+     * @param session : The session of the calling user.
+     * @param userDetails : The new user details to be merged with the existing ones.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user doesn't exist.
+     * @throws IllegalActionException If the calling user attempts to perform an illegal action.
+     * @throws IllegalArgumentException If {@code userDetails} doesn't pass validation.
+    */
     @PatchMapping(consumes = "application/json")
     public ResponseEntity<Void> updateUser(@RequestAttribute(name = "session") Session session, @RequestBody UserDto userDetails)
     throws AuthenticationException, AuthorizationException, DataAccessException, EntityNotFoundException, IllegalActionException,
@@ -131,6 +196,15 @@ public final class UserController {
     }
 
     ///..
+    /**
+     * Deletes the specified user and removes all of its sessions.
+     * @param session : The session of the calling user.
+     * @param id : The id of the target user.
+     * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user is not found.
+    */
     @DeleteMapping(path = "/{id}")
     public ResponseEntity<Void> deleteUser(@RequestAttribute(name = "session") Session session, @PathVariable(name = "id") long id)
     throws AuthorizationException, DataAccessException {

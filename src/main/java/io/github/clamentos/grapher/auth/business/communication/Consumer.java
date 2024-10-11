@@ -83,7 +83,7 @@ public class Consumer {
     private void processAndRespond(AuthRequest authRequest, String destination) throws NullPointerException {
 
         Session session = null;
-        String errorCode = null;
+        ErrorCode errorCode = null;
         List<String> errorArguments = new ArrayList<>();
 
         try {
@@ -99,16 +99,16 @@ public class Consumer {
                 );   
             }
 
-            else errorCode = ErrorCode.VALIDATOR_REQUIRE_NOT_NULL.name();
+            else errorCode = ErrorCode.VALIDATOR_REQUIRE_NOT_NULL;
         }
 
         catch(AuthenticationException | AuthorizationException exc) {
 
-            String[] splits = exc.getMessage().split("\1");
-            
+            String[] splits = exc.getMessage().split("/");
+
             if(splits.length > 1) {
 
-                errorCode = splits[0];
+                errorCode = ErrorCode.valueOf(splits[0]);
 
                 if(splits.length > 2) {
 

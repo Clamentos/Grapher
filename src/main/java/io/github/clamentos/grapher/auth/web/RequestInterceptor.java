@@ -1,6 +1,8 @@
 package io.github.clamentos.grapher.auth.web;
 
+///
 import io.github.clamentos.grapher.auth.business.services.SessionService;
+
 ///..
 import io.github.clamentos.grapher.auth.error.ErrorCode;
 import io.github.clamentos.grapher.auth.error.ErrorFactory;
@@ -27,9 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 ///.
-import org.springframework.dao.DataAccessException;
-
-///..
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.ModelAndView;
@@ -48,6 +47,7 @@ public class RequestInterceptor implements HandlerInterceptor {
 
     ///..
     private final Set<String> authenticationExcludedPaths;
+    private final Set<String> authenticationOptionalPaths;
     private final Map<String, Set<UserRole>> authorizationMappings;
 
     ///..
@@ -65,28 +65,46 @@ public class RequestInterceptor implements HandlerInterceptor {
 
         SessionService sessionService,
         Set<String> authenticationExcludedPaths,
+        Set<String> authenticationOptionalPaths,
         Map<String, Set<UserRole>> authorizationMappings
     ) {
 
         this.sessionService = sessionService;
         this.authenticationExcludedPaths = authenticationExcludedPaths;
+        this.authenticationOptionalPaths = authenticationOptionalPaths;
         this.authorizationMappings = authorizationMappings;
     }
 
     ///
+    /**
+	 * Performs authentication and authorization.
+	 * @param request current HTTP request
+	 * @param response current HTTP response
+	 * @param handler chosen handler to execute, for type and/or instance evaluation
+	 * @return Always {@code true}.
+	 * @throws AuthenticationException If authentication fails.
+     * @throws AuthorizationException If authorization fails.
+	*/
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
-    throws AuthenticationException, AuthorizationException, DataAccessException {
+    throws AuthenticationException, AuthorizationException {
 
         requests.incrementAndGet();
 
         String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-        String method = request.getMethod();
-        String key = method + uri;
+        String key = request.getMethod() + uri;
+        String header = request.getHeader("Authorization");
 
-        if(authenticationExcludedPaths.contains(key) == false) {
+        if(authenticationOptionalPaths.contains(key)) {
 
-            String header = request.getHeader("Authorization");
+            request.setAttribute(
+
+                "session",
+                header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
+            );
+        }
+
+        else if(authenticationExcludedPaths.contains(key) == false) {
 
             if(header != null) {
 
@@ -113,6 +131,7 @@ public class RequestInterceptor implements HandlerInterceptor {
 	}
 
     ///..
+    /** Exit point of the interceptor. This method simply updates some statistics. */
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) {
 

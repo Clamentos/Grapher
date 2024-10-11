@@ -31,7 +31,8 @@ public class BeanProvider implements ApplicationContextAware {
      * @implNote Sets the application context into {@code this}.
      * This method is called by Spring and should not be called from anywhere else.
     */
-    @Override @SuppressWarnings("static-access")
+    @Override
+    @SuppressWarnings("static-access")
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
 
         this.applicationContext = applicationContext;

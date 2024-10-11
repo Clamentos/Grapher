@@ -22,6 +22,8 @@ import java.util.Set;
 
 ///..
 import java.util.concurrent.ConcurrentHashMap;
+
+///..
 import java.util.function.Consumer;
 
 ///.
@@ -67,6 +69,7 @@ public class AppConfiguration implements WebMvcConfigurer {
 
     ///..
     private final Set<String> authenticationExcludedPaths;
+    private final Set<String> authenticationOptionalPaths;
     private final Map<String, Set<UserRole>> authorizationMappings;
 
     ///
@@ -78,20 +81,22 @@ public class AppConfiguration implements WebMvcConfigurer {
 
         authenticationExcludedPaths = new HashSet<>();
 
-        authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/register");
         authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/login");
-        authenticationExcludedPaths.add("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability");
+        authenticationExcludedPaths.add("GET/grapher/v1/auth-service/observability");
+
+        authenticationOptionalPaths = new HashSet<>();
+        authenticationOptionalPaths.add("POST/grapher/v1/auth-service/user/register");
 
         Set<UserRole> admin = Set.of(UserRole.ADMINISTRATOR);
         Set<UserRole> privileged = Set.of(UserRole.ADMINISTRATOR, UserRole.MODERATOR);
 
         authorizationMappings = new ConcurrentHashMap<>();
 
-        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/status", admin);
-        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/audits", admin);
-        authorizationMappings.put("GET/grapher/v1/auth-service/grapher/v1/auth-service/observability/logs", admin);
-        authorizationMappings.put("DELETE/grapher/v1/auth-service/grapher/v1/auth-service/observability/audits", admin);
-        authorizationMappings.put("DELETE/grapher/v1/auth-service/grapher/v1/auth-service/observability/logs", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/observability/status", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/observability/audits", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/observability/logs", admin);
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/observability/audits", admin);
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/observability/logs", admin);
 
         authorizationMappings.put("POST/grapher/v1/auth-service/user/subscriptions", Set.of());
         authorizationMappings.put("PATCH/grapher/v1/auth-service/user/subscriptions", Set.of());
@@ -102,7 +107,7 @@ public class AppConfiguration implements WebMvcConfigurer {
         authorizationMappings.put("GET/grapher/v1/auth-service/user/search", privileged);
         authorizationMappings.put("GET/grapher/v1/auth-service/user/{id}", Set.of());
         authorizationMappings.put("PATCH/grapher/v1/auth-service/user", Set.of());
-        authorizationMappings.put("DELETE/grapher/v1/auth-service/user", Set.of());
+        authorizationMappings.put("DELETE/grapher/v1/auth-service/user/{id}", Set.of());
     }
 
     ///
@@ -111,7 +116,13 @@ public class AppConfiguration implements WebMvcConfigurer {
 
 		registry
 
-            .addInterceptor(new RequestInterceptor(sessionService, authenticationExcludedPaths, authorizationMappings))
+            .addInterceptor(new RequestInterceptor(
+
+                sessionService,
+                authenticationExcludedPaths,
+                authenticationOptionalPaths,
+                authorizationMappings)
+            )
             .addPathPatterns("/**")
         ;
 	}

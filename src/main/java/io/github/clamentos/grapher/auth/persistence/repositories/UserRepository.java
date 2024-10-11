@@ -71,7 +71,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(
 
         value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.lockReason, " +
-                "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.username LIKE %?1%"
+                "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.username LIKE ?1%"
     )
     List<User> findAllMinimalByUsername(String usernameLike, Pageable pageRequest);
 
@@ -85,7 +85,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(
 
         value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.lockReason, " +
-                "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.email LIKE %?1%"
+                "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE u.email LIKE ?1%"
     )
     List<User> findAllMinimalByEmail(String emailLike, Pageable pageRequest);
 
@@ -101,14 +101,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         value = "SELECT new User(u.id, u.username, u.email, u.role, u.failedAccesses, u.lockedUntil, u.lockReason, " +
                 "u.passwordLastChangedAt, u.createdAt, u.createdBy, u.updatedAt, u.updatedBy) FROM User AS u WHERE " +
-                "u.username LIKE %?1% AND u.email LIKE %?2%"
+                "u.username LIKE ?1% AND u.email LIKE ?2%"
     )
     List<User> findAllMinimalByUsernameAndEmail(String usernameLike, String emailLike, Pageable pageRequest);
 
     ///..
     /**
      * Finds all the users that match the specified filter.
-     * @param roles : The list of roles {@code IN} clause. (must never be {@code null} or empty).
+     * @param roles : The list of roles {@code IN} clause. (cannot be {@code null} or empty).
      * @param createdAtStart : The user creation start date.
      * @param createdAtEnd : The user creation end date.
      * @param updatedAtStart : The user update start date.
@@ -158,8 +158,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     ///..
     /**
      * Finds all the users that match the specified filter.
-     * @param subscribedTo : The list of subscriptions. (must never be {@code null} or empty).
-     * @param roles : The list of roles {@code IN} clause. (must never be {@code null} or empty).
+     * @param subscribedTo : The list of subscriptions. (cannot be {@code null} or empty).
+     * @param roles : The list of roles {@code IN} clause. (cannot be {@code null} or empty).
      * @param createdAtStart : The user creation start date.
      * @param createdAtEnd : The user creation end date.
      * @param updatedAtStart : The user update start date.

@@ -261,7 +261,7 @@ public class UserService {
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
      * @throws NullPointerException If {@code session} is {@code null}.
     */
-    public List<UserDto> getAllUsers(Session session, UserSearchFilterDto searchFilter)
+    public List<UserDto> getAllUsersByFilter(Session session, UserSearchFilterDto searchFilter)
     throws DataAccessException, IllegalArgumentException, NullPointerException {
 
         validatorService.validateSearchFilter(searchFilter);

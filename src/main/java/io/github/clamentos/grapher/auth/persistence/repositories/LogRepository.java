@@ -36,6 +36,18 @@ import org.springframework.transaction.annotation.Transactional;
 public interface LogRepository extends JpaRepository<Log, Long> {
 
     ///
+    /**
+     * Finds All the logs that match the specified filter.
+     * @param timestampStart : The log timestamp start.
+     * @param timestampEnd : The log timestamp end.
+     * @param levels : The log levels. (cannot be {@code null} or empty).
+     * @param threads : The threads. (can be {@code null}, but not empty).
+     * @param messageLike : The message like pattern.
+     * @param createdAtStart : The log insertion timestamp start.
+     * @param createdAtEnd : The log insertion timestamp end.
+     * @param pageRequest : The target page to fetch.
+     * @return The never {@code null} list of logs.
+    */
     @Query(
 
         value = "SELECT l FROM Log AS l WHERE l.timestamp BETWEEN :ts AND :te AND l.level IN :l AND " +
@@ -47,13 +59,18 @@ public interface LogRepository extends JpaRepository<Log, Long> {
         @Param("te") long timestampEnd,
         @Param("l") List<String> levels,
         @Param("t") List<String> threads,
-        @Param("m") String message,
+        @Param("m") String messageLike,
         @Param("cs") long createdAtStart,
         @Param("ce") long createdAtEnd,
         Pageable pageRequest
     );
 
     ///..
+    /**
+     * Deletes all the audits that have been created in the specified period.
+     * @param start : The start of the period.
+     * @param end : The end of the period.
+    */
     @Transactional
     @Modifying
     @Query(value = "DELETE FROM Log AS l WHERE l.createdAt BETWEEN ?1 AND ?2")

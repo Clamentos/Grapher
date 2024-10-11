@@ -84,10 +84,13 @@ public class DatabaseLogsWriter {
     @Scheduled(cron = "1/60 * * * * *")
     private void dump() {
 
-        log.info("Logs dump start");
+        log.info("Starting logs dumping task...");
 
         try { Thread.sleep(2000); }
-        catch(InterruptedException exc) {}
+        catch(InterruptedException exc) { log.warn("Interrupted"); }
+
+        int totalLogsWritten = 0;
+        int totalFilesCleaned = 0;
 
         try {
 
@@ -106,8 +109,12 @@ public class DatabaseLogsWriter {
 
                 for(Path path : paths) {
 
-                    this.write(Files.readAllLines(path));
+                    List<String> lines = Files.readAllLines(path);
+                    this.write(lines);
                     Files.delete(path);
+
+                    totalLogsWritten += lines.size();
+                    totalFilesCleaned++;
                 }
             }
         }
@@ -117,7 +124,7 @@ public class DatabaseLogsWriter {
             log.error("Could not process files, will abort the job", exc);
         }
 
-        log.info("Logs dump end");
+        log.info("Logs dumping task completed, written: {} logs over: {} files", totalLogsWritten, totalFilesCleaned);
     }
 
     ///..

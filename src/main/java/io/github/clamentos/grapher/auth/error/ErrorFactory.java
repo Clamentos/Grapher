@@ -16,7 +16,7 @@ public final class ErrorFactory {
     ///
     /**
      * <p>Constructs a parametrized exception details message with the following formatting:</p>
-     * {@code <message>/<errorCode>/args[0]/args[1]/...}.
+     * {@code <errorCode>/<message>/args[0]/args[1]/...}.
      * @param errorCode : The error code.
      * @param message : The extra message.
      * @param args : The message arguments.
@@ -25,15 +25,15 @@ public final class ErrorFactory {
     */
     public static String create(ErrorCode errorCode, String message, Object... args) throws NullPointerException {
 
-        StringBuilder stringBuilder = new StringBuilder(message);
+        StringBuilder stringBuilder = new StringBuilder(errorCode != null ? errorCode.name() : ErrorCode.getDefault().name());
+
+        stringBuilder.append("/");
+        stringBuilder.append(message);
         stringBuilder.append("/");
 
-        if(errorCode == null) stringBuilder.append("EC999/");
-        else stringBuilder.append(errorCode.name()).append("/");
-
-        for(Object arg : args) stringBuilder.append(arg.toString()).append("/");
-
+        for(Object arg : args) stringBuilder.append(arg).append("/");
         stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+
         return(stringBuilder.toString());
     }
 

@@ -27,8 +27,7 @@ public final class ErrorDto {
     private final String url;
     private final long timestamp;
     private final ErrorCode errorCode;
-    private final String message;
-    private final List<String> parameters;
+    private final List<String> messageArguments;
 
     ///
 }

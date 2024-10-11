@@ -100,6 +100,8 @@ public class SessionService {
             sessions.put(session.getId(), session);
             userSessionCounters.computeIfAbsent(session.getUserId(), key -> new AtomicInteger()).incrementAndGet();
         }
+
+        if(sessions.size() > 0) log.info("Recovered {} sessions", sessions.size());
     }
 
     ///
@@ -115,7 +117,7 @@ public class SessionService {
     @Transactional
     public Session generate(long userId, String username, UserRole role) throws AuthorizationException, DataAccessException {
 
-        int count = userSessionCounters.computeIfAbsent(userId, k -> new AtomicInteger(0)).getAndUpdate(current -> {
+        int count = userSessionCounters.computeIfAbsent(userId, k -> new AtomicInteger()).getAndUpdate(current -> {
 
             int attempt = current + 1;
             if(attempt <= maxSessionsPerUser) return(attempt);
@@ -282,33 +284,40 @@ public class SessionService {
             if(session.getUserId() == userId) {
 
                 try { remove(session.getId()); }
-
-                // The session was not found. It's ok, can happen if a session is removed from another method concurrently.
-                catch(AuthenticationException exc) {}
+                catch(AuthenticationException exc) {} // The session was not found. It's ok, can happen due to concurrency.
                 catch(DataAccessException exc) { log.error("Could not remove session because: {}, will skip this one", exc); }
             }
         }
     }
 
     ///.
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(fixedRate = 300_000)
     protected void removeAllExpired() {
 
         log.info("Starting expired session cleaning task...");
+
         long now = System.currentTimeMillis();
+        int expiredCount = 0;
+        int deletedCount = 0;
 
         for(Map.Entry<String, Session> session : sessions.entrySet()) {
 
             if(session.getValue().getExpiresAt() < now) {
 
-                try { remove(session.getKey()); }
+                expiredCount++;
+
+                try {
+
+                    remove(session.getKey());
+                    deletedCount++;
+                }
 
                 catch(AuthenticationException exc) {} // The session was not found. It's ok, this is a cleaning method.
                 catch(DataAccessException exc) { log.error("Could not remove expired session because: {}, will skip this one", exc); }
             }
         }
 
-        log.info("Expired session cleaning task completed");
+        log.info("Expired session cleaning task completed, deleted: {} / {}", deletedCount, expiredCount);
     }
 
     ///

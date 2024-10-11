@@ -74,7 +74,7 @@ CREATE TABLE SUBSCRIPTION (
 );
 
 ---
--- seed database ...
+    INSERT INTO GRAPHER_USER (username,password,email,profile_picture,about,role,failed_accesses,locked_until,lock_reason,password_last_changed_at,created_at,created_by,updated_at,updated_by) values ('TestAdminUser', '$2a$12$nMn/a2q4Q0RtaddC1/3.2e1rxEQDxvu79sbKF5BywyaCP8XhxiqKy', 'TestAdminUser@nonexistent.com', null, 'Im a testing admin user !', 'ADMINISTRATOR', 0, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, '', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, 'TestAdminUser', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, 'TestAdminUser');
 
 ---
 COMMIT;

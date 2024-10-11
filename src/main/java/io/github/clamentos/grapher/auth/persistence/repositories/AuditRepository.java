@@ -51,8 +51,8 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     ///..
     /**
      * Finds all the audits that match the specified filter.
-     * @param tableNames : The name of the tables. (must never be {@code null} or empty).
-     * @param auditActions : The audit actions. (must never be {@code null} or empty).
+     * @param tableNames : The name of the tables. (cannot be {@code null} or empty).
+     * @param auditActions : The audit actions. (cannot be {@code null} or empty).
      * @param createdAtStart : The audit creation start date.
      * @param createdAtEnd : The audit creation end date.
      * @param createdByNames : The list of usernames of creation. (can be {@code null}, but not empty).

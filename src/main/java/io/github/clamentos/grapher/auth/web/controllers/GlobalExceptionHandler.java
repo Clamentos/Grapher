@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 ///..
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 
 ///..
@@ -134,10 +135,11 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
         String message = exc.getMessage() != null ? exc.getMessage() : "";
         String[] splits = message.split("/");
+
         ErrorCode errorCode = ErrorCode.getDefault();
         List<String> arguments = new ArrayList<>();
 
-        if(splits.length >= 2) errorCode = ErrorCode.valueOf(splits[1]);
+        if(splits.length >= 1) errorCode = ErrorCode.valueOf(splits[0]);
 
         if(splits.length >= 3) {
 
@@ -146,7 +148,13 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
         return(ResponseEntity.status(status).body(
 
-            new ErrorDto(request.getContextPath(), System.currentTimeMillis(), errorCode, message, arguments)
+            new ErrorDto(
+
+                ((ServletWebRequest)request).getRequest().getRequestURI().toString(),
+                System.currentTimeMillis(),
+                errorCode,
+                arguments
+            )
         ));
     }
 

@@ -68,11 +68,7 @@ public class ObservabilityService {
     public List<Audit> getAllAuditsByFilter(AuditSearchFilter searchFilter) throws DataAccessException, IllegalArgumentException {
 
         validatorService.validateAuditSearchFilter(searchFilter);
-
-        if(searchFilter.getRecordId() != null) {
-
-            return(auditRepository.findAllByRecordId(searchFilter.getRecordId()));
-        }
+        if(searchFilter.getRecordId() != null) return(auditRepository.findAllByRecordId(searchFilter.getRecordId()));
 
         return(auditRepository.findAllByFilter(
 
@@ -103,7 +99,7 @@ public class ObservabilityService {
             searchFilter.getTimestampEnd(),
             searchFilter.getLevels(),
             searchFilter.getThreads(),
-            searchFilter.getMessage(),
+            searchFilter.getMessageLike(),
             searchFilter.getCreatedAtStart(),
             searchFilter.getCreatedAtEnd(),
             PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize())

@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.communication.events;
 
 ///
+import io.github.clamentos.grapher.auth.error.ErrorCode;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///.
@@ -13,7 +16,7 @@ import lombok.Getter;
 ///
 /**
  * <h3>Auth Response</h3>
- * Outgoing-only DTO used as an authentication / authorization response broker event.
+ * Outgoing-only DTO used as an authentication / authorization broker event response.
 */
 
 ///
@@ -30,7 +33,7 @@ public final class AuthResponse {
     private final String requestId;
 
     ///..
-    private final String errorCode;
+    private final ErrorCode errorCode;
     private final List<String> errorArguments;
 
     ///..

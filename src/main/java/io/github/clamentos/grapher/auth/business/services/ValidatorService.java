@@ -143,7 +143,7 @@ public class ValidatorService {
 
     ///..
     /**
-     * Validates a username with the following regex: ^[a-zA-Z0-9._-]{3,32}$.
+     * Validates a username with the following regex: ^[a-zA-Z0-9-_.]{3,32}$.
      * @param username : The target username.
      * @param name : The name of the field.
      * @throws IllegalArgumentException If {@code username} doesn't pass validation.
@@ -156,7 +156,7 @@ public class ValidatorService {
 
     ///..
     /**
-     * Validates a password with the following regex: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{10,32}$.
+     * Validates a password with the following regex: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$.
      * @param password : The target password.
      * @param name : The name of the field.
      * @throws IllegalArgumentException If {@code password} doesn't pass validation.
@@ -340,7 +340,7 @@ public class ValidatorService {
         this.requireNotNull(searchFilter.getTimestampEnd(), "timestampEnd");
         this.requireFilled(searchFilter.getLevels(), "levels");
         this.requireFilled(searchFilter.getThreads(), "threads");
-        this.requireNotNull(searchFilter.getMessage(), "message");
+        this.requireNotNull(searchFilter.getMessageLike(), "message");
         this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
         this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
     }

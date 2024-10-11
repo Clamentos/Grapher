@@ -5,7 +5,11 @@ import io.github.clamentos.grapher.auth.error.ErrorCode;
 import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
 ///..
+import io.github.clamentos.grapher.auth.error.exceptions.IllegalActionException;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.AuditAction;
+import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.Audit;
@@ -90,12 +94,13 @@ public class SubscriptionService {
      * @param subscription : The target subscription to apply.
      * @throws DataAccessException If any database access errors occur.
      * @throws EntityNotFoundException If the calling user doesn't exist.
+     * @throws IllegalActionException If the target publisher is not a creator.
      * @throws IllegalArgumentException If {@code subscription} doesn't pass validation.
      * @throws NullPointerException If {@code session} is {@code null}.
     */
     @Transactional
     public void subscribe(Session session, SubscriptionDto subscription)
-    throws DataAccessException, EntityNotFoundException, IllegalArgumentException, NullPointerException {
+    throws DataAccessException, EntityNotFoundException, IllegalActionException, IllegalArgumentException, NullPointerException {
 
         validatorService.validateSubscription(subscription);
 
@@ -114,6 +119,16 @@ public class SubscriptionService {
                 ErrorCode.USER_NOT_FOUND, "SubscriptionService::subscribe -> Publisher not found", subscription.getPublisher()
             )));
         });
+
+        if(publisher.getRole().compareTo(UserRole.CREATOR) < 0) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_NOT_CREATOR,
+                "SubscriptionService::subscribe -> Cannot subscribe to user that is not at least creator role",
+                publisher.getUsername()
+            ));
+        }
 
         long now = System.currentTimeMillis();
 
