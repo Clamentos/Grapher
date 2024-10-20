@@ -1,4 +1,4 @@
-package io.github.clamentos.grapher.auth.logging;
+package io.github.clamentos.grapher.auth.monitoring.logging;
 
 ///
 import ch.qos.logback.classic.Level;

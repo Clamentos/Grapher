@@ -83,6 +83,16 @@ public class ObservabilityService {
 
     ///..
     /**
+     * @return The total number of logs.
+     * @throws DataAccessException If any database access error occurs.
+    */
+    public long countAllLogs() throws DataAccessException {
+
+        return(logRepository.count());
+    }
+
+    ///..
+    /**
      * Gets all the logs that match the provided search filter.
      * @param searchFilter : The search filer.
      * @return The never {@code null} list of logs.

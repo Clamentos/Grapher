@@ -50,6 +50,7 @@ public final class UserDto {
     private String updatedBy;
 
     ///..
+    private Long subscriberCount;
     private List<SubscriptionDto> subscriptions;
 
     ///

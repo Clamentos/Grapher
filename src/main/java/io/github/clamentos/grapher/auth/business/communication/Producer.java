@@ -2,6 +2,7 @@ package io.github.clamentos.grapher.auth.business.communication;
 
 ///
 import io.github.clamentos.grapher.auth.business.communication.events.AuthResponse;
+import io.github.clamentos.grapher.auth.business.communication.events.ForgotPasswordEvent;
 
 ///.
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +58,17 @@ public class Producer {
 
         try { template.convertAndSend(destination, "", authResponse); }
         catch(AmqpException exc) { log.error("Could not respond because: {}: {}", exc.getClass().getSimpleName(), exc.getMessage()); }
+    }
+
+    ///..
+    /**
+     * Sends the provided forgot password event to the message microservice.
+     * @param event : The target event to send.
+     * @throws AmqpException If any broker exception occurs.
+    */
+    public void sendForgotPasswordEvent(ForgotPasswordEvent event) throws AmqpException {
+
+        template.convertAndSend("ForgotPasswordExchange", "", event);
     }
 
     ///

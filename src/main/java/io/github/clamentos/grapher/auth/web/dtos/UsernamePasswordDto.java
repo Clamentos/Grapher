@@ -6,7 +6,7 @@ import lombok.Setter;
 
 ///
 /**
- * <h3>Username Password</h3>
+ * <h3>Username Password Dto</h3>
  * Ingoing-only DTO for user login HTTP requests.
 */
 
@@ -15,7 +15,7 @@ import lombok.Setter;
 @Setter
 
 ///
-public final class UsernamePassword {
+public final class UsernamePasswordDto {
 
     ///
     private String username;

@@ -7,15 +7,18 @@ import io.github.clamentos.grapher.auth.business.services.UserService;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 import io.github.clamentos.grapher.auth.error.exceptions.IllegalActionException;
+import io.github.clamentos.grapher.auth.error.exceptions.NotificationException;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.entities.Session;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuthDto;
+import io.github.clamentos.grapher.auth.web.dtos.ForgotPasswordDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
-import io.github.clamentos.grapher.auth.web.dtos.UsernamePassword;
+import io.github.clamentos.grapher.auth.web.dtos.UsernameEmailDto;
+import io.github.clamentos.grapher.auth.web.dtos.UsernamePasswordDto;
 
 ///.
 import jakarta.persistence.EntityExistsException;
@@ -100,7 +103,7 @@ public final class UserController {
      * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
     */
     @PostMapping(path = "/login", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<AuthDto> login(@RequestBody UsernamePassword credentials)
+    public ResponseEntity<AuthDto> login(@RequestBody UsernamePasswordDto credentials)
     throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(userService.login(credentials)));
@@ -210,6 +213,39 @@ public final class UserController {
     throws AuthorizationException, DataAccessException {
 
         userService.deleteUser(session, id);
+        return(ResponseEntity.ok().build());
+    }
+
+    ///..
+    /**
+     * Starts a forgot password session.
+     * @param usernameEmail : The user details.
+     * @throws AuthorizationException If authorization fails.
+     * @throws IllegalArgumentException If {@code usernameEmail} doesn't pass validation.
+     * @throws NotificationException If the notification cannot be sent to the message broker.
+    */
+    @GetMapping(path = "/forgot-password")
+    public ResponseEntity<Void> startForgotPassword(@RequestBody UsernameEmailDto usernameEmail)
+    throws AuthorizationException, IllegalArgumentException, NotificationException {
+
+        userService.startForgotPassword(usernameEmail);
+        return(ResponseEntity.ok().build());
+    }
+
+    ///..
+    /**
+     * Ends a forgot password session and applies the changes.
+     * @param forgotPassword : The forgot password details.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user is not found.
+     * @throws IllegalArgumentException If {@code forgotPassword} doesn't pass validation.
+    */
+    @PostMapping(path = "/forgot-password")
+    public ResponseEntity<Void> endForgotPassword(@RequestBody ForgotPasswordDto forgotPassword)
+    throws AuthorizationException, DataAccessException, EntityNotFoundException, IllegalArgumentException {
+
+        userService.endForgotPassword(forgotPassword);
         return(ResponseEntity.ok().build());
     }
 

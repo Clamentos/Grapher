@@ -14,6 +14,7 @@ import io.github.clamentos.grapher.auth.error.ErrorFactory;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 import io.github.clamentos.grapher.auth.error.exceptions.IllegalActionException;
+import io.github.clamentos.grapher.auth.error.exceptions.NotificationException;
 import io.github.clamentos.grapher.auth.error.exceptions.WrongPasswordException;
 
 ///..
@@ -33,10 +34,12 @@ import io.github.clamentos.grapher.auth.persistence.repositories.UserRepository;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuthDto;
+import io.github.clamentos.grapher.auth.web.dtos.ForgotPasswordDto;
 import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
-import io.github.clamentos.grapher.auth.web.dtos.UsernamePassword;
+import io.github.clamentos.grapher.auth.web.dtos.UsernameEmailDto;
+import io.github.clamentos.grapher.auth.web.dtos.UsernamePasswordDto;
 
 ///.
 import jakarta.persistence.EntityExistsException;
@@ -78,6 +81,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 
+// TODO: subscriber count in get methods
+
 ///
 public class UserService {
 
@@ -112,8 +117,8 @@ public class UserService {
 
         bcryptEffort = environment.getProperty("grapher-auth.bcryptEffort", Integer.class, 12);
         loginFailures = environment.getProperty("grapher-auth.loginFailures", Integer.class, 5);
-        userLockTime = environment.getProperty("grapher-auth.userLockTime", Long.class, 60000L); // 1 min
-        passwordExpirationTime = environment.getProperty("grapher-auth.passwordExpirationTime", Long.class, 5184000000L); // 60 days
+        userLockTime = environment.getProperty("grapher-auth.userLockTime", Long.class, 60_000L);
+        passwordExpirationTime = environment.getProperty("grapher-auth.passwordExpirationTime", Long.class, 5_184_000_000L);
     }
 
     ///
@@ -164,7 +169,7 @@ public class UserService {
      * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
     */
     @Transactional(noRollbackFor = WrongPasswordException.class)
-    public AuthDto login(UsernamePassword credentials)
+    public AuthDto login(UsernamePasswordDto credentials)
     throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
 
         validatorService.validateCredentials(credentials);
@@ -571,13 +576,73 @@ public class UserService {
 
             return(new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::updateUser -> User not found", id
+                ErrorCode.USER_NOT_FOUND, "UserService::deleteUser -> User not found", id
             )));
         });
 
         sessionService.removeAll(id);
         userRepository.delete(user);
         auditRepository.save(new Audit(user, AuditAction.DELETED, session.getUsername(), null));
+    }
+
+    ///..
+    /**
+     * Starts a forgot password session.
+     * @param usernameEmail : The user details.
+     * @throws AuthorizationException If authorization fails.
+     * @throws IllegalArgumentException If {@code usernameEmail} doesn't pass validation.
+     * @throws NotificationException If the notification cannot be sent to the message broker.
+    */
+    public void startForgotPassword(UsernameEmailDto usernameEmail)
+    throws AuthorizationException, IllegalArgumentException, NotificationException {
+
+        validatorService.validateUsernameEmail(usernameEmail);
+        User user = userRepository.findFullByUsername(usernameEmail.getUsername());
+
+        if(user == null) {
+
+            throw new EntityNotFoundException(ErrorFactory.create(
+
+                ErrorCode.USER_NOT_FOUND, "UserService::startForgotPassword -> User not found", user
+            ));
+        }
+
+        sessionService.generateForgotPassword(usernameEmail.getUsername(), usernameEmail.getEmail());
+    }
+
+    ///..
+    /**
+     * Ends a forgot password session and applies the changes.
+     * @param forgotPassword : The forgot password details.
+     * @throws AuthorizationException If authorization fails.
+     * @throws DataAccessException If any database access error occurs.
+     * @throws EntityNotFoundException If the target user is not found.
+     * @throws IllegalArgumentException If {@code forgotPassword} doesn't pass validation.
+    */
+    @Transactional
+    public void endForgotPassword(ForgotPasswordDto forgotPassword)
+    throws AuthorizationException, DataAccessException, EntityNotFoundException, IllegalArgumentException {
+
+        validatorService.validateForgotPasswordDto(forgotPassword);
+
+        String username = sessionService.confirmForgotPassword(forgotPassword.getForgotPasswordSessionId());
+        User user = userRepository.findFullByUsername(username);
+
+        if(user == null) {
+
+            throw new EntityNotFoundException(ErrorFactory.create(
+
+                ErrorCode.USER_NOT_FOUND, "UserService::endForgotPassword -> User not found", username
+            ));
+        }
+
+        user.setPassword(BCrypt.withDefaults().hashToString(bcryptEffort, forgotPassword.getForgotPasswordSessionId().toCharArray()));
+        user.setPasswordLastChangedAt(System.currentTimeMillis());
+
+        userRepository.save(user);
+        auditRepository.save(new Audit(user, AuditAction.UPDATED, username, "password,password_last_changed_at"));
+
+        sessionService.removeAll(user.getId());
     }
 
     ///.
@@ -614,6 +679,7 @@ public class UserService {
             user.getCreatedBy(),
             user.getUpdatedAt(),
             user.getUpdatedBy(),
+            user.getRole().compareTo(UserRole.CREATOR) >= 0 ? userRepository.countSubscribers(user.getId()) : null,
             privateMode ? subscriptions : null
         ));
     }
@@ -638,6 +704,7 @@ public class UserService {
             user.getCreatedBy(),
             user.getUpdatedAt(),
             user.getUpdatedBy(),
+            -1L,
             null
         ));
     }

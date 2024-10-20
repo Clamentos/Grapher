@@ -6,11 +6,13 @@ import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
+import io.github.clamentos.grapher.auth.web.dtos.ForgotPasswordDto;
 import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
 import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
-import io.github.clamentos.grapher.auth.web.dtos.UsernamePassword;
+import io.github.clamentos.grapher.auth.web.dtos.UsernameEmailDto;
+import io.github.clamentos.grapher.auth.web.dtos.UsernamePasswordDto;
 
 ///.
 import java.util.Collection;
@@ -238,7 +240,7 @@ public class ValidatorService {
      * @param credentials : The target login credentials.
      * @throws IllegalArgumentException If {@code credentials} doesn't pass validation.
     */
-    public void validateCredentials(UsernamePassword credentials) throws IllegalArgumentException {
+    public void validateCredentials(UsernamePasswordDto credentials) throws IllegalArgumentException {
 
         this.requireNotNull(credentials, "body");
         this.requireFilled(credentials.getUsername(), "credentials.username");
@@ -343,6 +345,33 @@ public class ValidatorService {
         this.requireNotNull(searchFilter.getMessageLike(), "message");
         this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
         this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
+    }
+
+    ///..
+    /**
+     * Validates the provided username-email dto.
+     * @param usernameEmail : The target username-email dto.
+     * @throws IllegalArgumentException If {@code usernameEmail} doesn't pass validation.
+    */
+    public void validateUsernameEmail(UsernameEmailDto usernameEmail) throws IllegalArgumentException {
+
+        this.requireNotNull(usernameEmail, "body");
+        this.requireFilled(usernameEmail.getUsername(), "username");
+        this.requireFilled(usernameEmail.getEmail(), "email");
+        this.validateEmail(usernameEmail.getEmail(), "email");
+    }
+
+    ///..
+    /**
+     * Validates the provided forgot password dto.
+     * @param forgotPassword : The target forgot password.
+     * @throws IllegalArgumentException If {@code forgotPassword} doesn't pass validation.
+    */
+    public void validateForgotPasswordDto(ForgotPasswordDto forgotPassword) throws IllegalArgumentException {
+
+        this.requireNotNull(forgotPassword, "body");
+        this.requireFilled(forgotPassword.getForgotPasswordSessionId(), "forgotPasswordSessionId");
+        this.validatePassword(forgotPassword.getPassword(), "password");
     }
 
     ///

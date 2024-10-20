@@ -209,5 +209,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
         Pageable pageRequest
     );
 
+    ///..
+    /**
+     * Counts the number of subscribers of the specified user.
+     * @param id : The id of the target user.
+     * @return The number of subscribers.
+    */
+    @Query(value = "SELECT COUNT(1) FROM User AS u INNER JOIN u.subscribers AS uu")
+    long countSubscribers(long id);
+
     ///
 }

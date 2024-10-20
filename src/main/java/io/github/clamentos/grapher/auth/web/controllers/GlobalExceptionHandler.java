@@ -6,6 +6,10 @@ import io.github.clamentos.grapher.auth.error.ErrorCode;
 ///..
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+import io.github.clamentos.grapher.auth.error.exceptions.NotificationException;
+
+///..
+import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.ErrorDto;
@@ -22,12 +26,15 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 ///.
+import org.springframework.beans.factory.annotation.Autowired;
+
+///..
 import org.springframework.dao.DataAccessException;
 
 ///..
 import org.springframework.http.ResponseEntity;
 
-///.
+///..
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -50,6 +57,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 ///
 public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    ///
+    private final StatisticsTracker statisticsTracker;
+
+    ///
+    @Autowired
+    public GlobalExceptionHandler(StatisticsTracker statisticsTracker) {
+
+        this.statisticsTracker = statisticsTracker;
+    }
 
     ///
     /**
@@ -130,8 +147,23 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
         return(constructError(exc, request, 400));
     }
 
+    ///..
+    /**
+     * Handle {@link NotificationException} and respond with a {@code 422}.
+     * @param exc : The target exception to handle.
+     * @param request : The associated web request.
+     * @return The never {@code null} HTTP response with the error details.
+    */
+    @ExceptionHandler(value = NotificationException.class)
+    public ResponseEntity<ErrorDto> handleNotificationException(NotificationException exc, WebRequest request) {
+
+        return(constructError(exc, request, 422));
+    }
+
     ///.
     private ResponseEntity<ErrorDto> constructError(RuntimeException exc, WebRequest request, int status) {
+
+        statisticsTracker.incrementResponseStatusCounts(status);
 
         String message = exc.getMessage() != null ? exc.getMessage() : "";
         String[] splits = message.split("/");

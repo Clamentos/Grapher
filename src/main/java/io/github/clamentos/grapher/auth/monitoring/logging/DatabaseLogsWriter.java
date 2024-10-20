@@ -1,4 +1,4 @@
-package io.github.clamentos.grapher.auth.logging;
+package io.github.clamentos.grapher.auth.monitoring.logging;
 
 ///
 import io.github.clamentos.grapher.auth.persistence.entities.Log;
@@ -124,7 +124,10 @@ public class DatabaseLogsWriter {
             log.error("Could not process files, will abort the job", exc);
         }
 
-        log.info("Logs dumping task completed, written: {} logs over: {} files", totalLogsWritten, totalFilesCleaned);
+        if(totalFilesCleaned > 0) {
+
+            log.info("Logs dumping task completed, written {} logs over {} files", totalLogsWritten, totalFilesCleaned);
+        }
     }
 
     ///..
@@ -138,7 +141,7 @@ public class DatabaseLogsWriter {
             String[] sections = pattern.split(line); // section[0] is the initial '|'
             long timestamp = LocalDateTime.parse(sections[1], formatter).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-            logs.add(new Log(0, timestamp, sections[2], sections[3], sections[4], sections[5], now));
+            logs.add(new Log(0, timestamp, sections[2].trim(), sections[3], sections[4], sections[5], now));
         }
 
         logRepository.saveAll(logs);

@@ -79,5 +79,12 @@ public final class ApplicationApis {
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 
+    ///..
+    public MockHttpServletResponse getStatus(String baseUrl, String sessionId) throws Exception {
+
+        var builder = MockMvcRequestBuilders.get(baseUrl + "/status").header("Authorization", sessionId);
+        return(mockMvc.perform(builder).andReturn().getResponse());
+    }
+
     ///
 }

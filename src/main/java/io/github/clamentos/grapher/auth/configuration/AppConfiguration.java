@@ -7,6 +7,9 @@ import io.github.clamentos.grapher.auth.business.communication.Producer;
 import io.github.clamentos.grapher.auth.business.services.SessionService;
 
 ///..
+import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///..
@@ -27,10 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 ///.
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.amqp.support.converter.MessageConverter;
-
-///..
 import org.springframework.beans.factory.annotation.Autowired;
 
 ///..
@@ -66,6 +65,7 @@ public class AppConfiguration implements WebMvcConfigurer {
 
     ///
     private final SessionService sessionService;
+    private final StatisticsTracker statisticsTracker;
 
     ///..
     private final Set<String> authenticationExcludedPaths;
@@ -75,14 +75,17 @@ public class AppConfiguration implements WebMvcConfigurer {
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public AppConfiguration(SessionService sessionService) {
+    public AppConfiguration(SessionService sessionService, StatisticsTracker statisticsTracker) {
 
         this.sessionService = sessionService;
+        this.statisticsTracker = statisticsTracker;
 
         authenticationExcludedPaths = new HashSet<>();
 
         authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/login");
         authenticationExcludedPaths.add("GET/grapher/v1/auth-service/observability");
+        authenticationExcludedPaths.add("GET/grapher/v1/auth-service/user/forgot-password");
+        authenticationExcludedPaths.add("POST/grapher/v1/auth-service/user/forgot-password");
 
         authenticationOptionalPaths = new HashSet<>();
         authenticationOptionalPaths.add("POST/grapher/v1/auth-service/user/register");
@@ -119,6 +122,7 @@ public class AppConfiguration implements WebMvcConfigurer {
             .addInterceptor(new RequestInterceptor(
 
                 sessionService,
+                statisticsTracker,
                 authenticationExcludedPaths,
                 authenticationOptionalPaths,
                 authorizationMappings)
@@ -132,13 +136,6 @@ public class AppConfiguration implements WebMvcConfigurer {
     public static LazyInitializationExcludeFilter lazyInitExcludeFilter() {
 
         return(LazyInitializationExcludeFilter.forBeanTypes(BeanProvider.class, Producer.class, Consumer.class));
-    }
-
-    ///..
-    @Bean
-    public MessageConverter messageConverterBean() {
-
-        return(new Jackson2JsonMessageConverter("io.github.clamentos.grapher.auth"));
     }
 
     ///

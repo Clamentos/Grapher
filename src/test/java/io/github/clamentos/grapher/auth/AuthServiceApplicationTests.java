@@ -1,9 +1,6 @@
 package io.github.clamentos.grapher.auth;
 
 ///
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-///..
 import com.fasterxml.jackson.core.type.TypeReference;
 
 ///..
@@ -15,15 +12,11 @@ import io.github.clamentos.grapher.auth.error.ErrorCode;
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuthDto;
 import io.github.clamentos.grapher.auth.web.dtos.ErrorDto;
-import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
+import io.github.clamentos.grapher.auth.web.dtos.UsernamePasswordDto;
 
 ///.
 import java.io.IOException;
-
-///..
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 ///..
 import java.util.ArrayList;
@@ -59,6 +52,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 
 ///..
+import org.springframework.http.HttpStatus;
+
+///..
 import org.springframework.mock.web.MockHttpServletResponse;
 
 ///..
@@ -82,8 +78,11 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 @TestPropertySource(locations = "classpath:application_test.properties")
 @TestClassOrder(value = ClassOrderer.OrderAnnotation.class)
 
+// TODO: validate response payloads...
+// TODO: more tests
+
 ///
-public class AuthServiceApplicationTests { // TODO: validate response payloads...
+public class AuthServiceApplicationTests {
 
     ///
     private final MockMvc mockMvc;
@@ -93,16 +92,16 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
     private final int maxSessionsPerUser;
 
     ///..
-    private final ApplicationApis applicationApis;
     private final String baseUrl;
-    private final Map<String, List<Object>> requestBodies;
+    private final ApplicationApis applicationApis;
     private final Map<String, List<String>> sessionIds;
 
     ///..
     private final TypeReference<AuthDto> authDtoType;
     private final TypeReference<ErrorDto> errorDtoType;
-    private final TypeReference<SubscriptionDto> subscriptionDtoType;
+    // private final TypeReference<SubscriptionDto> subscriptionDtoType;
     private final TypeReference<UserDto> userDtoType;
+    private final TypeReference<UsernamePasswordDto> usernamePasswordDtoType;
 
     ///..
     private String tempSessionId;
@@ -121,85 +120,136 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         this.objectMapper = objectMapper;
         this.maxSessionsPerUser = maxSessionsPerUser;
 
-        applicationApis = new ApplicationApis(mockMvc);
         baseUrl = "http://localhost:8080";
-
-        requestBodies = objectMapper.readValue(
-
-            Files.readString(Paths.get("./src/test/resources/requestBodies.json")),
-            new TypeReference<Map<String, List<Object>>>(){}
-        );
-
+        applicationApis = new ApplicationApis(mockMvc);
         sessionIds = new HashMap<>();
 
         authDtoType = new TypeReference<AuthDto>() {};
         errorDtoType = new TypeReference<ErrorDto>() {};
-        subscriptionDtoType = new TypeReference<SubscriptionDto>() {};
+        // subscriptionDtoType = new TypeReference<SubscriptionDto>() {};
         userDtoType = new TypeReference<UserDto>() {};
+        usernamePasswordDtoType = new TypeReference<UsernamePasswordDto>() {};
     }
 
     ///
-    public String getBody(String testName) throws JsonProcessingException {
+    public void checkErrorDto(ErrorDto errorDto, String expectedPath, ErrorCode expectedErrorCode, String... expectedArgs)
+    throws Exception {
 
-        return(getBody(testName, 0));
+        Assertions.assertTrue(errorDto != null);
+        Assertions.assertEquals(expectedPath, errorDto.getUrl());
+
+        if(expectedErrorCode != null) Assertions.assertEquals(expectedErrorCode, errorDto.getErrorCode());
+        else Assertions.assertTrue(errorDto.getErrorCode() != null);
+
+        if(expectedArgs != null) {
+
+            List<String> arguments = errorDto.getMessageArguments();
+
+            Assertions.assertTrue(arguments != null);
+            Assertions.assertEquals(expectedArgs.length, arguments.size());
+
+            for(int i = 0; i < expectedArgs.length; i++) {
+
+                Assertions.assertEquals(expectedArgs[i], arguments.get(i));
+            }
+        }
     }
 
     ///..
-    public String getBody(String testName, int index) throws JsonProcessingException {
+    public void checkErrorDto(ErrorDto errorDto, String path) throws Exception {
 
-        return(objectMapper.writeValueAsString(requestBodies.get(testName).get(index)));
+        checkErrorDto(errorDto, path, null, (String[])null);
+    }
+
+    ///..
+    public AuthDto checkAuthDto(AuthDto authDto, String expectedUsername) throws Exception {
+
+        Assertions.assertTrue(authDto != null);
+        Assertions.assertTrue(authDto.getSessionId() != null);
+        Assertions.assertTrue(authDto.getSessionId().equals("") == false);
+        Assertions.assertTrue(authDto.getUserDetails() != null);
+        Assertions.assertEquals(expectedUsername, authDto.getUserDetails().getUsername());
+
+        return(authDto);
     }
 
     ///
     @Nested
     @Order(1)
 	@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @TestInstance(value = TestInstance.Lifecycle.PER_CLASS)
 	class UserTests {
 
-        private final String path = "/grapher/v1/auth-service/user";
+        ///..
+        private final String url = baseUrl + "/grapher/v1/auth-service/user";
+
+        private final Map<String, String> bodies = Map.ofEntries(
+
+            Map.entry("registerSuccessful", "{\"username\":\"TestUser\",\"password\":\"Password123?!\",\"email\":\"TestUser@nonexistent.com\",\"about\":\"I'm a testing user !\"}"),
+
+            Map.entry("registerInvalidDto_0", "{\"username\":null,\"password\":\"Password123?!\"}"),
+            Map.entry("registerInvalidDto_1", "{\"username\":\"TestUser\",\"password\":null}"),
+            Map.entry("registerInvalidDto_2", "{\"username\":\"TestUserNotExists\",\"password\":\"pwd1\"}"),
+
+            Map.entry("loginSuccessful", "{\"username\":\"TestUser\",\"password\":\"Password123?!\"}"),
+            Map.entry("loginUserNotFound", "{\"username\":\"TestUserNotExists\",\"password\":\"Password123?!\"}"),
+            Map.entry("loginWrongPassword", "{\"username\":\"TestUser\",\"password\":\"Password124?!\"}"),
+
+            Map.entry("loginInvalidDto_0", "{\"username\":null,\"password\":\"Password124?!\"}"),
+
+            Map.entry("registerOtherSuccessful", "{\"username\":\"TestUser2\",\"password\":\"Password123?!\",\"email\":\"TestUser2@nonexistent.com\",\"about\":\"I'm a testing user 2 !\"}"),
+
+            Map.entry("searchUsers", "{\"pageNumber\":0,\"pageSize\":10,\"usernameLike\":\"Test\"}")
+        );
 
         ///..
         @Test @Order(1)
         public void registerSuccessful() throws Exception {
 
-            var response = applicationApis.register(baseUrl + path, null, getBody("registerSuccessful"));
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            MockHttpServletResponse response = applicationApis.register(url, null, bodies.get("registerSuccessful"));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(2)
         public void registerAlreadyExists() throws Exception {
 
-            String body = getBody("registerSuccessful");
-            var response = applicationApis.register(baseUrl + path, null, body);
+            String body = bodies.get("registerSuccessful");
+            MockHttpServletResponse response = applicationApis.register(url, null, body);
+            Assertions.assertEquals(HttpStatus.CONFLICT.value(), response.getStatus());
 
-            Assertions.assertEquals(409, response.getStatus(), "Response status");
+            checkErrorDto(
 
-            ErrorDto dto = objectMapper.readValue(response.getContentAsString(), errorDtoType);
-            String username = objectMapper.readValue(body, userDtoType).getUsername();
-
-            Assertions.assertEquals(path + "/register", dto.getUrl(), "ErrorDto.url");
-            Assertions.assertEquals(ErrorCode.USER_ALREADY_EXISTS, dto.getErrorCode(), "ErrorDto.errorCode");
-            Assertions.assertEquals(username, dto.getMessageArguments().get(0), "ErrorDto.parameters[0]");
+                objectMapper.readValue(response.getContentAsString(), errorDtoType),
+                "/grapher/v1/auth-service/user/register",
+                ErrorCode.USER_ALREADY_EXISTS,
+                objectMapper.readValue(body, userDtoType).getUsername()
+            );
         }
 
         ///..
-        @ParameterizedTest @Order(3)
-        @ValueSource(ints = {0})
+        @ParameterizedTest @Order(3) @ValueSource(ints = {0, 1, 2})
         public void registerInvalidDto(int index) throws Exception {
 
-            var response = applicationApis.register(baseUrl + path, null, getBody("registerInvalidDto", index));
-            Assertions.assertEquals(400, response.getStatus(), "Response status");
+            MockHttpServletResponse response = applicationApis.register(url, null, bodies.get("registerInvalidDto_" + index));
+            Assertions.assertEquals(HttpStatus.BAD_REQUEST.value(), response.getStatus());
+
+            checkErrorDto(
+
+                objectMapper.readValue(response.getContentAsString(), errorDtoType),
+                "/grapher/v1/auth-service/user/register"
+            );
         }
 
         ///..
         @Test @Order(4)
 		public void loginSuccessful() throws Exception {
 
-            var response = applicationApis.login(baseUrl + path, getBody("loginSuccessful"));
-
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
-            AuthDto dto = objectMapper.readValue(response.getContentAsString(), authDtoType);
+            String body = bodies.get("loginSuccessful");
+            MockHttpServletResponse response = applicationApis.login(url, body);
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+            UsernamePasswordDto credentials = objectMapper.readValue(body, usernamePasswordDtoType);
+            AuthDto dto = checkAuthDto(objectMapper.readValue(response.getContentAsString(), authDtoType), credentials.getUsername());
             sessionIds.computeIfAbsent(dto.getUserDetails().getUsername(), k -> new ArrayList<>()).add(dto.getSessionId());
         }
 
@@ -209,51 +259,71 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
 
             MockHttpServletResponse response = null;
 
-            for(int i = 0; i < maxSessionsPerUser - 1; i++) { // -1 from already logged in, -1 to stop 1 earlier.
+            for(int i = 0; i < maxSessionsPerUser - 1; i++) {
 
-                response = applicationApis.login(baseUrl + path, getBody("loginSuccessful"));
-
-                Assertions.assertEquals(200, response.getStatus(), "Response status");
+                response = applicationApis.login(url, bodies.get("loginSuccessful"));
+                Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
                 AuthDto dto = objectMapper.readValue(response.getContentAsString(), authDtoType);
                 sessionIds.computeIfAbsent(dto.getUserDetails().getUsername(), k -> new ArrayList<>()).add(dto.getSessionId());
             }
 
-            response = applicationApis.login(baseUrl + path, getBody("loginSuccessful"));
-            Assertions.assertEquals(403, response.getStatus(), "Response status");
+            response = applicationApis.login(url, bodies.get("loginSuccessful"));
+            Assertions.assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(6)
 		public void loginUserNotFound() throws Exception {
 
-            var response = applicationApis.login(baseUrl + path, getBody("loginUserNotFound"));
-            Assertions.assertEquals(401, response.getStatus(), "Response status");
+            String body = bodies.get("loginUserNotFound");
+            MockHttpServletResponse response = applicationApis.login(url, body);
+            Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
+
+            checkErrorDto(
+
+                objectMapper.readValue(response.getContentAsString(), errorDtoType),
+                "/grapher/v1/auth-service/user/login",
+                ErrorCode.USER_NOT_FOUND,
+                objectMapper.readValue(body, usernamePasswordDtoType).getUsername()
+            );
         }
 
         ///..
         @Test @Order(7)
 		public void loginWrongPassword() throws Exception {
 
-            var response = applicationApis.login(baseUrl + path, getBody("loginWrongPassword"));
-            Assertions.assertEquals(401, response.getStatus(), "Response status");
+            String body = bodies.get("loginWrongPassword");
+            MockHttpServletResponse response = applicationApis.login(url, body);
+            Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
+
+            checkErrorDto(
+
+                objectMapper.readValue(response.getContentAsString(), errorDtoType),
+                "/grapher/v1/auth-service/user/login",
+                ErrorCode.WRONG_PASSWORD
+            );
         }
 
         ///..
-        @ParameterizedTest @Order(8)
-        @ValueSource(ints = {0})
+        @ParameterizedTest @Order(8) @ValueSource(ints = {0})
         public void loginInvalidDto(int index) throws Exception {
 
-            var response = applicationApis.login(baseUrl + path, getBody("loginInvalidDto", index));
-            Assertions.assertEquals(400, response.getStatus(), "Response status");
+            MockHttpServletResponse response = applicationApis.login(url, bodies.get("loginInvalidDto_" + index));
+            Assertions.assertEquals(HttpStatus.BAD_REQUEST.value(), response.getStatus());
+
+            checkErrorDto(
+
+                objectMapper.readValue(response.getContentAsString(), errorDtoType),
+                "/grapher/v1/auth-service/user/login"
+            );
         }
 
         ///..
         @Test @Order(9)
         public void logoutSuccessful() throws Exception {
 
-            var response = applicationApis.logout(baseUrl + path, sessionIds.get("TestUser").get(0));
-
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            MockHttpServletResponse response = applicationApis.logout(url, sessionIds.get("TestUser").get(0));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
             tempSessionId = sessionIds.get("TestUser").get(0);
             sessionIds.get("TestUser").remove(0);
         }
@@ -262,9 +332,8 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         @Test @Order(10)
         public void logoutAllSuccessful() throws Exception {
 
-            var response = applicationApis.logoutAll(baseUrl + path, sessionIds.get("TestUser").get(0));
-
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.logoutAll(url, sessionIds.get("TestUser").get(0));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
             sessionIds.remove("TestUser");
         }
 
@@ -272,58 +341,45 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         @Test @Order(11)
         public void logoutSessionNotFound() throws Exception {
 
-            var response = applicationApis.logout(baseUrl + path, tempSessionId);
-            Assertions.assertEquals(401, response.getStatus(), "Response status");
+            var response = applicationApis.logout(url, tempSessionId);
+            Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(12)
 		public void loginFinal() throws Exception {
 
-            var response = applicationApis.login(baseUrl + path, "{\"username\":\"TestAdminUser\",\"password\":\"Password123?!\"}");
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.login(url, "{\"username\":\"TestAdminUser\",\"password\":\"Password123?!\"}");
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
             AuthDto dto = objectMapper.readValue(response.getContentAsString(), authDtoType);
             sessionIds.computeIfAbsent(dto.getUserDetails().getUsername(), k -> new ArrayList<>()).add(dto.getSessionId());
 
-            var response2 = applicationApis.login(baseUrl + path, getBody("loginSuccessful"));
-            Assertions.assertEquals(200, response2.getStatus(), "Response status");
+            var response2 = applicationApis.login(url, bodies.get("loginSuccessful"));
+            Assertions.assertEquals(HttpStatus.OK.value(), response2.getStatus());
             AuthDto dto2 = objectMapper.readValue(response2.getContentAsString(), authDtoType);
             sessionIds.computeIfAbsent(dto2.getUserDetails().getUsername(), k -> new ArrayList<>()).add(dto2.getSessionId());
-
-            System.out.println("dbg map " + sessionIds.toString());
         }
 
         ///..
         // login password expired
         // test too many failed logins
         // login locked user
+        // test forgot password
 
         ///..
         @Test @Order(13)
         public void registerOtherSuccessful() throws Exception {
 
-            var response = applicationApis.register(
-
-                baseUrl + path,
-                sessionIds.get("TestAdminUser").get(0),
-                getBody("registerOtherSuccessful")
-            );
-
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.register(url, sessionIds.get("TestAdminUser").get(0), bodies.get("registerOtherSuccessful"));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(14)
         public void registerOtherForbidden() throws Exception {
 
-            var response = applicationApis.register(
-
-                baseUrl + path,
-                sessionIds.get("TestUser").get(0),
-                getBody("registerOtherSuccessful")
-            );
-
-            Assertions.assertEquals(403, response.getStatus(), "Response status");
+            var response = applicationApis.register(url, sessionIds.get("TestUser").get(0), bodies.get("registerOtherSuccessful"));
+            Assertions.assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
         }
 
         ///..
@@ -331,16 +387,16 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
 		public void getSelf() throws Exception {
 
             // "TestUser" will always have id = 2.
-            var response = applicationApis.getById(baseUrl + path, sessionIds.get("TestUser").get(0), 2);
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.getById(url, sessionIds.get("TestUser").get(0), 2L);
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(16)
 		public void getUserNotFound() throws Exception {
 
-            var response = applicationApis.getById(baseUrl + path, sessionIds.get("TestUser").get(0), 999);
-            Assertions.assertEquals(404, response.getStatus(), "Response status");
+            var response = applicationApis.getById(url, sessionIds.get("TestUser").get(0), 99999L);
+            Assertions.assertEquals(HttpStatus.NOT_FOUND.value(), response.getStatus());
         }
 
         ///..
@@ -348,32 +404,33 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
 		public void getUserOtherPrivileged() throws Exception {
 
             // "TestAdminUser" will always have id = 1.
-            var response = applicationApis.getById(baseUrl + path, sessionIds.get("TestAdminUser").get(0), 1);
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.getById(url, sessionIds.get("TestAdminUser").get(0), 1);
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(18)
 		public void getUserOtherUnprivileged() throws Exception {
 
-            var response = applicationApis.getById(baseUrl + path, sessionIds.get("TestUser").get(0), 1);
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            // The dto returned has some information hidden away.
+            var response = applicationApis.getById(url, sessionIds.get("TestUser").get(0), 1);
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(19)
 		public void searchUsers() throws Exception {
 
-            var response = applicationApis.getAllByFilter(baseUrl + path, sessionIds.get("TestAdminUser").get(0), getBody("searchUsers"));
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.getAllByFilter(url, sessionIds.get("TestAdminUser").get(0), bodies.get("searchUsers"));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(20)
 		public void searchUsersDenied() throws Exception {
 
-            var response = applicationApis.getAllByFilter(baseUrl + path, sessionIds.get("TestUser").get(0), getBody("searchUsers"));
-            Assertions.assertEquals(403, response.getStatus(), "Response status");
+            var response = applicationApis.getAllByFilter(url, sessionIds.get("TestUser").get(0), bodies.get("searchUsers"));
+            Assertions.assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
         }
 
         ///..
@@ -383,20 +440,28 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         @Test @Order(21)
         public void deleteOthersForbidden() throws Exception {
 
-            // id 3 is always the "TestUser2"
-            var response = applicationApis.deleteUser(baseUrl + path, sessionIds.get("TestUser").get(0), 3);
-            Assertions.assertEquals(403, response.getStatus(), "Response status");
+            // id 3 is always the "TestUser2".
+            var response = applicationApis.deleteUser(url, sessionIds.get("TestUser").get(0), 3);
+            Assertions.assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
         }
 
         ///..
         @Test @Order(22)
         public void deleteOthersSuccessful() throws Exception {
 
-            var response = applicationApis.deleteUser(baseUrl + path, sessionIds.get("TestAdminUser").get(0), 3);
-            Assertions.assertEquals(200, response.getStatus(), "Response status");
+            var response = applicationApis.deleteUser(url, sessionIds.get("TestAdminUser").get(0), 3);
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
         }
 
-        // delete not found
+        ///..
+        @Test @Order(23)
+        public void deleteOthersNotFound() throws Exception {
+
+            var response = applicationApis.deleteUser(url, sessionIds.get("TestAdminUser").get(0), 3);
+            Assertions.assertEquals(HttpStatus.NOT_FOUND.value(), response.getStatus());
+        }
+
+        ///..
     }
 
     ///
@@ -408,18 +473,14 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
 	@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 	class ObservabilityTests {
 
+        ///..
         private final String path = "/grapher/v1/auth-service/observability";
 
+        ///..
         @Test @Order(1)
 		public void healthCheck() throws Exception {
 
-            var response = mockMvc
-
-                .perform(MockMvcRequestBuilders.get(baseUrl + path))
-                .andReturn()
-                .getResponse()
-            ;
-
+            var response = mockMvc.perform(MockMvcRequestBuilders.get(baseUrl + path)).andReturn().getResponse();
             Assertions.assertEquals(200, response.getStatus(), "Response status");
         }
 
@@ -427,17 +488,7 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         @Test @Order(2)
 		public void getStatus() throws Exception {
 
-            var response = mockMvc
-
-                .perform(MockMvcRequestBuilders
-
-                    .get(baseUrl + path + "/status")
-                    .header("Authorization", sessionIds.get("TestAdminUser").get(0))
-                )
-                .andReturn()
-                .getResponse()
-            ;
-
+            var response = applicationApis.getStatus(baseUrl + path, sessionIds.get("TestAdminUser").get(0));
             Assertions.assertEquals(200, response.getStatus(), "Response status");
         }
 
@@ -445,17 +496,7 @@ public class AuthServiceApplicationTests { // TODO: validate response payloads..
         @Test @Order(3)
 		public void getStatusForbidden() throws Exception {
 
-            var response = mockMvc
-
-                .perform(MockMvcRequestBuilders
-
-                    .get(baseUrl + path + "/status")
-                    .header("Authorization", sessionIds.get("TestUser").get(0))
-                )
-                .andReturn()
-                .getResponse()
-            ;
-
+            var response = applicationApis.getStatus(baseUrl + path, sessionIds.get("TestUser").get(0));
             Assertions.assertEquals(403, response.getStatus(), "Response status");
         }
 

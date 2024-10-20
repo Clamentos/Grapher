@@ -12,6 +12,9 @@ import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
+import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///.
@@ -21,12 +24,6 @@ import jakarta.servlet.http.HttpServletResponse;
 ///.
 import java.util.Map;
 import java.util.Set;
-
-///..
-import java.util.concurrent.ConcurrentHashMap;
-
-///..
-import java.util.concurrent.atomic.AtomicLong;
 
 ///.
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -44,15 +41,12 @@ public class RequestInterceptor implements HandlerInterceptor {
 
     ///
     private final SessionService sessionService;
+    private final StatisticsTracker statisticsTracker;
 
     ///..
     private final Set<String> authenticationExcludedPaths;
     private final Set<String> authenticationOptionalPaths;
     private final Map<String, Set<UserRole>> authorizationMappings;
-
-    ///..
-    public static final Map<Integer, AtomicLong> requestStatusStatistics = new ConcurrentHashMap<>();
-    public static final AtomicLong requests = new AtomicLong();
 
     ///
     /**
@@ -64,12 +58,14 @@ public class RequestInterceptor implements HandlerInterceptor {
     public RequestInterceptor(
 
         SessionService sessionService,
+        StatisticsTracker statisticsTracker,
         Set<String> authenticationExcludedPaths,
         Set<String> authenticationOptionalPaths,
         Map<String, Set<UserRole>> authorizationMappings
     ) {
 
         this.sessionService = sessionService;
+        this.statisticsTracker = statisticsTracker;
         this.authenticationExcludedPaths = authenticationExcludedPaths;
         this.authenticationOptionalPaths = authenticationOptionalPaths;
         this.authorizationMappings = authorizationMappings;
@@ -80,7 +76,7 @@ public class RequestInterceptor implements HandlerInterceptor {
 	 * Performs authentication and authorization.
 	 * @param request current HTTP request
 	 * @param response current HTTP response
-	 * @param handler chosen handler to execute, for type and/or instance evaluation
+	 * @param handler chosen handler to execute, for type and / or instance evaluation
 	 * @return Always {@code true}.
 	 * @throws AuthenticationException If authentication fails.
      * @throws AuthorizationException If authorization fails.
@@ -89,7 +85,7 @@ public class RequestInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
     throws AuthenticationException, AuthorizationException {
 
-        requests.incrementAndGet();
+        statisticsTracker.incrementIncomingRequestCount();
 
         String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String key = request.getMethod() + uri;
@@ -99,8 +95,7 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             request.setAttribute(
 
-                "session",
-                header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
+                "session", header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
             );
         }
 
@@ -108,21 +103,18 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             if(header != null) {
 
-                request.setAttribute("session", sessionService.check(
+                request.setAttribute(
 
-                    header,
-                    authorizationMappings.get(key),
-                    null,
-                    "Not enough privileges to call this URL"
-                ));
+                    "session",
+                    sessionService.check(header, authorizationMappings.get(key), null, "Not enough privileges to call this URL")
+                );
 
                 return(true);
             }
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.INVALID_AUTH_HEADER,
-                "RequestInterceptor::preHandle -> Bad or missing auth header"
+                ErrorCode.INVALID_AUTH_HEADER, "RequestInterceptor::preHandle -> Bad or missing auth header"
             ));
         }
 
@@ -135,7 +127,12 @@ public class RequestInterceptor implements HandlerInterceptor {
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) {
 
-        requestStatusStatistics.computeIfAbsent(response.getStatus(), key -> new AtomicLong()).incrementAndGet();
+        if(response.getStatus() == 200) {
+
+            // The statistics tracker already increments.
+            String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+            if(uri.equals("/grapher/v1/auth-service/observability/status") == false) statisticsTracker.incrementResponseStatusCounts(200);
+        }
 	}
 
     ///

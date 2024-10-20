@@ -4,29 +4,19 @@ package io.github.clamentos.grapher.auth.web.controllers;
 import io.github.clamentos.grapher.auth.business.services.ObservabilityService;
 
 ///..
-import io.github.clamentos.grapher.auth.persistence.entities.Audit;
-import io.github.clamentos.grapher.auth.persistence.entities.Log;
+import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
 
 ///..
-import io.github.clamentos.grapher.auth.web.RequestInterceptor;
+import io.github.clamentos.grapher.auth.persistence.entities.Audit;
+import io.github.clamentos.grapher.auth.persistence.entities.Log;
 
 ///..
 import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
 import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
 
 ///.
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.RuntimeMXBean;
-import java.lang.management.ThreadMXBean;
-
-///.
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-///..
-import java.util.concurrent.atomic.AtomicLong;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,24 +52,15 @@ public final class ObservabilityController {
 
     ///
     private final ObservabilityService observabilityService;
-
-    ///..
-    private final Runtime runtime;
-    private final MemoryMXBean memoryBean;
-    private final RuntimeMXBean runtimeBean;
-    private final ThreadMXBean threadBean;
+    private final StatisticsTracker statisticsTracker;
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public ObservabilityController(ObservabilityService observabilityService) {
+    public ObservabilityController(ObservabilityService observabilityService, StatisticsTracker statisticsTracker) {
 
         this.observabilityService = observabilityService;
-
-        runtime = Runtime.getRuntime();
-        memoryBean = ManagementFactory.getMemoryMXBean();
-        runtimeBean = ManagementFactory.getRuntimeMXBean();
-        threadBean = ManagementFactory.getThreadMXBean();
+        this.statisticsTracker = statisticsTracker;
     }
 
     ///
@@ -95,35 +76,7 @@ public final class ObservabilityController {
     @GetMapping(path = "/status", produces = "application/json")
     public ResponseEntity<Map<String, Object>> getStatus() {
 
-        Map<String, Object> status = new HashMap<>();
-
-        status.put("freeMemory", runtime.freeMemory());
-        status.put("maxMemory", runtime.maxMemory());
-        status.put("totalMemory", runtime.totalMemory());
-        status.put("heapMemoryUsage", memoryBean.getHeapMemoryUsage());
-        status.put("nonHeapMemoryUsage", memoryBean.getNonHeapMemoryUsage());
-        status.put("classPath", runtimeBean.getClassPath());
-        status.put("inputArguments", runtimeBean.getInputArguments());
-        status.put("pid", runtimeBean.getPid());
-        status.put("startTime", runtimeBean.getStartTime());
-        status.put("uptime", runtimeBean.getUptime());
-        status.put("vmName", runtimeBean.getVmName());
-        status.put("vmVendor", runtimeBean.getVmVendor());
-        status.put("vmVersion", runtimeBean.getVmVersion());
-        status.put("threadCount", threadBean.getThreadCount());
-        status.put("peakThreadCount", threadBean.getPeakThreadCount());
-
-        Map<String, Long> requestStatuses = new HashMap<>();
-
-        for(Map.Entry<Integer, AtomicLong> entry : RequestInterceptor.requestStatusStatistics.entrySet()) {
-
-            requestStatuses.put(Integer.toString(entry.getKey()), entry.getValue().get());
-        }
-
-        status.put("requestStatusCount", requestStatuses);
-        status.put("requestCount", RequestInterceptor.requests.get());
-
-        return(ResponseEntity.ok(status));
+        return(ResponseEntity.ok(statisticsTracker.getStatus()));
     }
 
     ///..
@@ -139,6 +92,13 @@ public final class ObservabilityController {
     throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(observabilityService.getAllAuditsByFilter(searchFilter)));
+    }
+
+    ///..
+    @GetMapping(path = "/logs/count", produces = "text/plain")
+    public ResponseEntity<Long> countAllLogs() throws DataAccessException {
+
+        return(ResponseEntity.ok(observabilityService.countAllLogs()));
     }
 
     ///..
