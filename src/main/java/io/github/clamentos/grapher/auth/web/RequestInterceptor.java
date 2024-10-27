@@ -10,9 +10,10 @@ import io.github.clamentos.grapher.auth.error.ErrorFactory;
 ///..
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
+import io.github.clamentos.grapher.auth.error.exceptions.ServiceUnavailableException;
 
 ///..
-import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
+import io.github.clamentos.grapher.auth.monitoring.Readiness;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
@@ -28,7 +29,6 @@ import java.util.Set;
 ///.
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
-import org.springframework.web.servlet.ModelAndView;
 
 ///
 /**
@@ -40,8 +40,11 @@ import org.springframework.web.servlet.ModelAndView;
 public class RequestInterceptor implements HandlerInterceptor {
 
     ///
+    private static final String SESSION = "session";
+
+    ///..
     private final SessionService sessionService;
-    private final StatisticsTracker statisticsTracker;
+    private final Readiness readiness;
 
     ///..
     private final Set<String> authenticationExcludedPaths;
@@ -58,14 +61,14 @@ public class RequestInterceptor implements HandlerInterceptor {
     public RequestInterceptor(
 
         SessionService sessionService,
-        StatisticsTracker statisticsTracker,
+        Readiness readiness,
         Set<String> authenticationExcludedPaths,
         Set<String> authenticationOptionalPaths,
         Map<String, Set<UserRole>> authorizationMappings
     ) {
 
         this.sessionService = sessionService;
-        this.statisticsTracker = statisticsTracker;
+        this.readiness = readiness;
         this.authenticationExcludedPaths = authenticationExcludedPaths;
         this.authenticationOptionalPaths = authenticationOptionalPaths;
         this.authorizationMappings = authorizationMappings;
@@ -80,12 +83,21 @@ public class RequestInterceptor implements HandlerInterceptor {
 	 * @return Always {@code true}.
 	 * @throws AuthenticationException If authentication fails.
      * @throws AuthorizationException If authorization fails.
+     * @throws ServiceUnavailableException If the service is currently unavailable.
 	*/
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
-    throws AuthenticationException, AuthorizationException {
+    throws AuthenticationException, AuthorizationException, ServiceUnavailableException {
 
-        statisticsTracker.incrementIncomingRequestCount();
+        if(!readiness.getIsReady().get()) {
+
+            throw new ServiceUnavailableException(ErrorFactory.create(
+
+                ErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+                "Service is temporary unavailable",
+                readiness.getDownDuration()
+            ));
+        }
 
         String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String key = request.getMethod() + uri;
@@ -95,18 +107,17 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             request.setAttribute(
 
-                "session", header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
+                SESSION, header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
             );
         }
 
-        else if(authenticationExcludedPaths.contains(key) == false) {
+        else if(!authenticationExcludedPaths.contains(key)) {
 
             if(header != null) {
 
                 request.setAttribute(
 
-                    "session",
-                    sessionService.check(header, authorizationMappings.get(key), null, "Not enough privileges to call this URL")
+                    SESSION, sessionService.check(header, authorizationMappings.get(key), null, "Not enough privileges to call this URL")
                 );
 
                 return(true);
@@ -118,21 +129,8 @@ public class RequestInterceptor implements HandlerInterceptor {
             ));
         }
 
-        else request.setAttribute("session", null);
+        else request.setAttribute(SESSION, null);
         return(true);
-	}
-
-    ///..
-    /** Exit point of the interceptor. This method simply updates some statistics. */
-    @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) {
-
-        if(response.getStatus() == 200) {
-
-            // The statistics tracker already increments.
-            String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-            if(uri.equals("/grapher/v1/auth-service/observability/status") == false) statisticsTracker.incrementResponseStatusCounts(200);
-        }
 	}
 
     ///

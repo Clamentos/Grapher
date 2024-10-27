@@ -5,9 +5,9 @@ import io.github.clamentos.grapher.auth.error.ErrorCode;
 import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
+import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilterDto;
 import io.github.clamentos.grapher.auth.web.dtos.ForgotPasswordDto;
-import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
+import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilterDto;
 import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UserSearchFilterDto;
@@ -36,6 +36,9 @@ import org.springframework.stereotype.Service;
 public class ValidatorService {
 
     ///
+    private static final String PREFIX = "subscriptions[";
+
+    ///..
     private final Pattern usernamePattern;
     private final Pattern emailPattern;
     private final Pattern passwordPattern;
@@ -47,7 +50,7 @@ public class ValidatorService {
 
         usernamePattern = Pattern.compile("^[a-zA-Z0-9-_.]{3,32}$");
         emailPattern = Pattern.compile("^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$");
-        passwordPattern = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$");
+        passwordPattern = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$");
         maxImageSize = 275252; // ceil(256*256*3*1.4)
     }
 
@@ -72,7 +75,7 @@ public class ValidatorService {
     */
     public void requireNullOrEmpty(Collection<?> coll, String name) throws IllegalArgumentException {
 
-        if(coll != null && coll.size() != 0)
+        if(coll != null && !coll.isEmpty())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_NULL_OR_EMPTY, "", name));
     }
 
@@ -85,7 +88,7 @@ public class ValidatorService {
     */
     public void requireNullOrFilled(Collection<?> coll, String name) throws IllegalArgumentException {
 
-        if(coll != null && coll.size() == 0)
+        if(coll != null && coll.isEmpty())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_NULL_OR_FILLED, "", name));
     }
 
@@ -123,7 +126,7 @@ public class ValidatorService {
     */
     public void requireFilled(Collection<?> coll, String name) throws IllegalArgumentException {
 
-        if(coll == null || coll.size() == 0)
+        if(coll == null || coll.isEmpty())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_FILLED, "", name));
     }
 
@@ -137,7 +140,7 @@ public class ValidatorService {
     */
     public void requireFullyFilled(Collection<?> coll, String name, String elemName) throws IllegalArgumentException {
 
-        if(coll == null || coll.size() == 0)
+        if(coll == null || coll.isEmpty())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_FILLED, "", name));
 
         for(Object elem : coll) this.requireNotNull(elem, elemName);
@@ -152,7 +155,7 @@ public class ValidatorService {
     */
     public void validateUsername(String username, String name) throws IllegalArgumentException {
 
-        if(username == null || username.length() == 0 || usernamePattern.matcher(username).matches() == false)
+        if(username == null || username.length() == 0 || !usernamePattern.matcher(username).matches())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_BAD_USERNAME, "", name));
     }
 
@@ -165,7 +168,7 @@ public class ValidatorService {
     */
     public void validatePassword(String password, String name) throws IllegalArgumentException {
 
-        if(password == null || password.length() == 0 || passwordPattern.matcher(password).matches() == false)
+        if(password == null || password.length() == 0 || !passwordPattern.matcher(password).matches())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_PASSWORD_TOO_WEAK, "", name));
     }
 
@@ -178,7 +181,7 @@ public class ValidatorService {
     */
     public void validateEmail(String email, String name) throws IllegalArgumentException {
 
-        if(email != null && email.length() > 0 && emailPattern.matcher(email).matches() == false)
+        if(email != null && email.length() > 0 && !emailPattern.matcher(email).matches())
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_BAD_EMAIL, "", name));
     }
 
@@ -191,26 +194,26 @@ public class ValidatorService {
     */
     public void validateAndSanitize(UserDto userDetails, boolean isUpdate) throws IllegalArgumentException {
 
-        this.requireNotNull(userDetails, "body");
+        this.requireNotNull(userDetails, "userDetails");
 
         if(isUpdate) {
 
-            this.requireNotNull(userDetails.getId(), "id");
-            this.requireNull(userDetails.getUsername(), "username");
-            this.requireNull(userDetails.getFailedAccesses(), "failedAccesses");
-            this.requireNull(userDetails.getPasswordLastChangedAt(), "passwordLastChangedAt");
+            this.requireNotNull(userDetails.getId(), "userDetails.id");
+            this.requireNull(userDetails.getUsername(), "userDetails.username");
+            this.requireNull(userDetails.getFailedAccesses(), "userDetails.failedAccesses");
+            this.requireNull(userDetails.getPasswordLastChangedAt(), "userDetails.passwordLastChangedAt");
         }
 
         else {
 
-            this.requireNull(userDetails.getId(), "id");
-            this.validateUsername(userDetails.getUsername(), "username");
-            this.validatePassword(userDetails.getPassword(), "password");
-            this.validateEmail(userDetails.getEmail(), "email");
-            this.requireNull(userDetails.getRole(), "role");
-            this.requireNull(userDetails.getFailedAccesses(), "failedAccesses");
-            this.requireNull(userDetails.getLockedUntil(), "lockedUntil");
-            this.requireNull(userDetails.getPasswordLastChangedAt(), "passwordLastChangedAt");
+            this.requireNull(userDetails.getId(), "userDetails.id");
+            this.validateUsername(userDetails.getUsername(), "userDetails.username");
+            this.validatePassword(userDetails.getPassword(), "userDetails.password");
+            this.validateEmail(userDetails.getEmail(), "userDetails.email");
+            this.requireNull(userDetails.getRole(), "userDetails.role");
+            this.requireNull(userDetails.getFailedAccesses(), "userDetails.failedAccesses");
+            this.requireNull(userDetails.getLockedUntil(), "userDetails.lockedUntil");
+            this.requireNull(userDetails.getPasswordLastChangedAt(), "userDetails.passwordLastChangedAt");
 
             if(userDetails.getEmail() == null) userDetails.setEmail("");
             if(userDetails.getAbout() == null) userDetails.setAbout("");
@@ -227,11 +230,11 @@ public class ValidatorService {
             }
         }
 
-        this.requireNull(userDetails.getCreatedAt(), "createdAt");
-        this.requireNull(userDetails.getUpdatedAt(), "updatedAt");
-        this.requireNull(userDetails.getCreatedBy(), "createdBy");
-        this.requireNull(userDetails.getUpdatedBy(), "updatedBy");
-        this.requireNullOrEmpty(userDetails.getSubscriptions(), "subscriptions");
+        this.requireNull(userDetails.getCreatedAt(), "userDetails.createdAt");
+        this.requireNull(userDetails.getUpdatedAt(), "userDetails.updatedAt");
+        this.requireNull(userDetails.getCreatedBy(), "userDetails.createdBy");
+        this.requireNull(userDetails.getUpdatedBy(), "userDetails.updatedBy");
+        this.requireNullOrEmpty(userDetails.getSubscriptions(), "userDetails.subscriptions");
     }
 
     ///..
@@ -242,7 +245,7 @@ public class ValidatorService {
     */
     public void validateCredentials(UsernamePasswordDto credentials) throws IllegalArgumentException {
 
-        this.requireNotNull(credentials, "body");
+        this.requireNotNull(credentials, "credentials");
         this.requireFilled(credentials.getUsername(), "credentials.username");
         this.requireFilled(credentials.getPassword(), "credentials.password");
     }
@@ -255,21 +258,21 @@ public class ValidatorService {
     */
     public void validateSearchFilter(UserSearchFilterDto searchFilter) throws IllegalArgumentException {
 
-        this.requireNotNull(searchFilter, "body");
-        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
-        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
+        this.requireNotNull(searchFilter, "searchFilter");
+        this.requireNotNull(searchFilter.getPageNumber(), "searchFilter.pageNumber");
+        this.requireNotNull(searchFilter.getPageSize(), "searchFilter.pageSize");
 
         if(searchFilter.getUsernameLike() == null && searchFilter.getEmailLike() == null) {
 
-            this.requireFilled(searchFilter.getRoles(), "roles");
-            this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
-            this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
-            this.requireNullOrFilled(searchFilter.getCreatedByNames(), "createdBy");
-            this.requireNotNull(searchFilter.getUpdatedAtStart(), "updatedAtStart");
-            this.requireNotNull(searchFilter.getUpdatedAtEnd(), "updatedAtEnd");
-            this.requireNullOrFilled(searchFilter.getUpdatedByNames(), "updatedBy");
-            this.requireNullOrFilled(searchFilter.getSubscribedToNames(), "subscribedTo");
-            this.requireNotNull(searchFilter.getFailedAccesses(), "failedAccesses");
+            this.requireFilled(searchFilter.getRoles(), "searchFilter.roles");
+            this.requireNotNull(searchFilter.getCreatedAtStart(), "searchFilter.createdAtStart");
+            this.requireNotNull(searchFilter.getCreatedAtEnd(), "searchFilter.createdAtEnd");
+            this.requireNullOrFilled(searchFilter.getCreatedByNames(), "searchFilter.createdBy");
+            this.requireNotNull(searchFilter.getUpdatedAtStart(), "searchFilter.updatedAtStart");
+            this.requireNotNull(searchFilter.getUpdatedAtEnd(), "searchFilter.updatedAtEnd");
+            this.requireNullOrFilled(searchFilter.getUpdatedByNames(), "searchFilter.updatedBy");
+            this.requireNullOrFilled(searchFilter.getSubscribedToNames(), "searchFilter.subscribedTo");
+            this.requireNotNull(searchFilter.getFailedAccesses(), "searchFilter.failedAccesses");
         }
     }
 
@@ -281,12 +284,12 @@ public class ValidatorService {
     */
     public void validateSubscription(SubscriptionDto subscription) throws IllegalArgumentException {
 
-        this.requireNotNull(subscription, "body");
-        this.requireNull(subscription.getId(), "id");
-        this.requireNotNull(subscription.getPublisher(), "publisher");
-        this.requireNotNull(subscription.getNotify(), "notify");
-        this.requireNull(subscription.getCreatedAt(), "createdAt");
-        this.requireNull(subscription.getUpdatedAt(), "updatedAt");
+        this.requireNotNull(subscription, "subscription");
+        this.requireNull(subscription.getId(), "subscription.id");
+        this.requireNotNull(subscription.getPublisher(), "subscription.publisher");
+        this.requireNotNull(subscription.getNotify(), "subscription.notify");
+        this.requireNull(subscription.getCreatedAt(), "subscription.createdAt");
+        this.requireNull(subscription.getUpdatedAt(), "subscription.updatedAt");
     }
 
     ///..
@@ -297,54 +300,57 @@ public class ValidatorService {
     */
     public void validateSubscriptions(Iterable<SubscriptionDto> subscriptions) throws IllegalArgumentException {
 
-        this.requireNotNull(subscriptions, "body");
+        this.requireNotNull(subscriptions, "subscriptions");
+        int i = 0;
 
         for(SubscriptionDto subscription : subscriptions) {
 
-            this.requireNotNull(subscription, "subscription");
-            this.requireNotNull(subscription.getId(), "id");
-            this.requireNull(subscription.getPublisher(), "publisher");
-            this.requireNull(subscription.getCreatedAt(), "createdAt");
-            this.requireNull(subscription.getUpdatedAt(), "updatedAt");
+            this.requireNotNull(subscription, PREFIX + i + "].subscription");
+            this.requireNotNull(subscription.getId(), PREFIX + i + "].id");
+            this.requireNull(subscription.getPublisher(), PREFIX + i + "].publisher");
+            this.requireNull(subscription.getCreatedAt(), PREFIX + i + "].createdAt");
+            this.requireNull(subscription.getUpdatedAt(), PREFIX + i + "].updatedAt");
+
+            i++;
         }
     }
 
     ///..
     /**
      * Validates the provided audit search filter.
-     * @param searchFilter : The target search filter.
-     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+     * @param auditSearchFilter : The target search filter.
+     * @throws IllegalArgumentException If {@code auditSearchFilter} doesn't pass validation.
     */
-    public void validateAuditSearchFilter(AuditSearchFilter searchFilter) throws IllegalArgumentException {
+    public void validateAuditSearchFilter(AuditSearchFilterDto auditSearchFilter) throws IllegalArgumentException {
 
-        this.requireNotNull(searchFilter, "body");
-        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
-        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
-        this.requireFilled(searchFilter.getTableNames(), "tableNames");
-        this.requireFilled(searchFilter.getAuditActions(), "auditActions");
-        this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
-        this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
-        this.requireNullOrFilled(searchFilter.getCreatedByNames(), "createdByNames");
+        this.requireNotNull(auditSearchFilter, "auditSearchFilter");
+        this.requireNotNull(auditSearchFilter.getPageNumber(), "auditSearchFilter.pageNumber");
+        this.requireNotNull(auditSearchFilter.getPageSize(), "auditSearchFilter.pageSize");
+        this.requireFilled(auditSearchFilter.getTableNames(), "auditSearchFilter.tableNames");
+        this.requireFilled(auditSearchFilter.getAuditActions(), "auditSearchFilter.auditActions");
+        this.requireNotNull(auditSearchFilter.getCreatedAtStart(), "auditSearchFilter.createdAtStart");
+        this.requireNotNull(auditSearchFilter.getCreatedAtEnd(), "auditSearchFilter.createdAtEnd");
+        this.requireNullOrFilled(auditSearchFilter.getCreatedByNames(), "auditSearchFilter.createdByNames");
     }
 
     ///..
     /**
      * Validates the provided log search filter.
-     * @param searchFilter : The target search filter.
-     * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
+     * @param logSearchFilter : The target search filter.
+     * @throws IllegalArgumentException If {@code logSearchFilter} doesn't pass validation.
     */
-    public void validateLogSearchFilter(LogSearchFilter searchFilter) throws IllegalArgumentException {
+    public void validateLogSearchFilter(LogSearchFilterDto logSearchFilter) throws IllegalArgumentException {
 
-        this.requireNotNull(searchFilter, "body");
-        this.requireNotNull(searchFilter.getPageNumber(), "pageNumber");
-        this.requireNotNull(searchFilter.getPageSize(), "pageSize");
-        this.requireNotNull(searchFilter.getTimestampStart(), "timestampStart");
-        this.requireNotNull(searchFilter.getTimestampEnd(), "timestampEnd");
-        this.requireFilled(searchFilter.getLevels(), "levels");
-        this.requireFilled(searchFilter.getThreads(), "threads");
-        this.requireNotNull(searchFilter.getMessageLike(), "message");
-        this.requireNotNull(searchFilter.getCreatedAtStart(), "createdAtStart");
-        this.requireNotNull(searchFilter.getCreatedAtEnd(), "createdAtEnd");
+        this.requireNotNull(logSearchFilter, "logSearchFilter");
+        this.requireNotNull(logSearchFilter.getPageNumber(), "logSearchFilter.pageNumber");
+        this.requireNotNull(logSearchFilter.getPageSize(), "logSearchFilter.pageSize");
+        this.requireNotNull(logSearchFilter.getTimestampStart(), "logSearchFilter.timestampStart");
+        this.requireNotNull(logSearchFilter.getTimestampEnd(), "logSearchFilter.timestampEnd");
+        this.requireFilled(logSearchFilter.getLevels(), "logSearchFilter.levels");
+        this.requireFilled(logSearchFilter.getThreads(), "logSearchFilter.threads");
+        this.requireNotNull(logSearchFilter.getMessageLike(), "logSearchFilter.message");
+        this.requireNotNull(logSearchFilter.getCreatedAtStart(), "logSearchFilter.createdAtStart");
+        this.requireNotNull(logSearchFilter.getCreatedAtEnd(), "logSearchFilter.createdAtEnd");
     }
 
     ///..
@@ -355,10 +361,10 @@ public class ValidatorService {
     */
     public void validateUsernameEmail(UsernameEmailDto usernameEmail) throws IllegalArgumentException {
 
-        this.requireNotNull(usernameEmail, "body");
-        this.requireFilled(usernameEmail.getUsername(), "username");
-        this.requireFilled(usernameEmail.getEmail(), "email");
-        this.validateEmail(usernameEmail.getEmail(), "email");
+        this.requireNotNull(usernameEmail, "usernameEmail");
+        this.requireFilled(usernameEmail.getUsername(), "usernameEmail.username");
+        this.requireFilled(usernameEmail.getEmail(), "usernameEmail.email");
+        this.validateEmail(usernameEmail.getEmail(), "usernameEmail.email");
     }
 
     ///..
@@ -369,9 +375,9 @@ public class ValidatorService {
     */
     public void validateForgotPasswordDto(ForgotPasswordDto forgotPassword) throws IllegalArgumentException {
 
-        this.requireNotNull(forgotPassword, "body");
-        this.requireFilled(forgotPassword.getForgotPasswordSessionId(), "forgotPasswordSessionId");
-        this.validatePassword(forgotPassword.getPassword(), "password");
+        this.requireNotNull(forgotPassword, "forgotPassword");
+        this.requireFilled(forgotPassword.getForgotPasswordSessionId(), "forgotPassword.forgotPasswordSessionId");
+        this.validatePassword(forgotPassword.getPassword(), "forgotPassword.password");
     }
 
     ///

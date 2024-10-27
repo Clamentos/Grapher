@@ -1,6 +1,10 @@
 package io.github.clamentos.grapher.auth.business.services;
 
 ///
+import io.github.clamentos.grapher.auth.monitoring.Readiness;
+import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.entities.Audit;
 import io.github.clamentos.grapher.auth.persistence.entities.Log;
 
@@ -9,14 +13,34 @@ import io.github.clamentos.grapher.auth.persistence.repositories.AuditRepository
 import io.github.clamentos.grapher.auth.persistence.repositories.LogRepository;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
-import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
+import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilterDto;
+import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilterDto;
 
 ///.
+import java.time.Duration;
+
+///..
+import java.time.format.DateTimeParseException;
+
+///..
 import java.util.List;
+import java.util.Map;
+
+///.
+import lombok.extern.slf4j.Slf4j;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
+
+///..
+import org.springframework.boot.availability.AvailabilityChangeEvent;
+import org.springframework.boot.availability.ReadinessState;
+
+///..
+import org.springframework.context.ApplicationContext;
+
+///..
+import org.springframework.context.event.EventListener;
 
 ///..
 import org.springframework.dao.DataAccessException;
@@ -25,10 +49,16 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
 
 ///..
+import org.springframework.scheduling.annotation.Async;
+
+///..
 import org.springframework.stereotype.Service;
 
 ///..
 import org.springframework.transaction.annotation.Transactional;
+
+///..
+import org.springframework.web.context.support.ServletRequestHandledEvent;
 
 ///
 /**
@@ -38,6 +68,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 ///
 @Service
+@Slf4j
 
 ///
 public class ObservabilityService {
@@ -46,18 +77,43 @@ public class ObservabilityService {
     private final AuditRepository auditRepository;
     private final LogRepository logRepository;
     private final ValidatorService validatorService;
+    private final StatisticsTracker statisticsTracker;
+
+    ///..
+    private final ApplicationContext applicationContext;
+
+    ///..
+    private final Readiness readiness;
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public ObservabilityService(AuditRepository auditRepository, LogRepository logRepository, ValidatorService validatorService) {
+    public ObservabilityService(
+
+        AuditRepository auditRepository,
+        LogRepository logRepository,
+        ValidatorService validatorService,
+        StatisticsTracker statisticsTracker,
+        ApplicationContext applicationContext,
+        Readiness readiness
+    ) {
 
         this.auditRepository = auditRepository;
         this.logRepository = logRepository;
         this.validatorService = validatorService;
+        this.statisticsTracker = statisticsTracker;
+        this.applicationContext = applicationContext;
+        this.readiness = readiness;
     }
 
     ///
+    /** @return The never {@code null} application status summary. */
+    public Map<String, Object> getStatus() {
+
+        return(statisticsTracker.getStatus());
+    }
+
+    ///..
     /**
      * Gets all the audits that match the provided search filter.
      * @param searchFilter : The search filer.
@@ -65,7 +121,7 @@ public class ObservabilityService {
      * @throws DataAccessException If any database access error occurs.
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
     */
-    public List<Audit> getAllAuditsByFilter(AuditSearchFilter searchFilter) throws DataAccessException, IllegalArgumentException {
+    public List<Audit> getAllAuditsByFilter(AuditSearchFilterDto searchFilter) throws DataAccessException, IllegalArgumentException {
 
         validatorService.validateAuditSearchFilter(searchFilter);
         if(searchFilter.getRecordId() != null) return(auditRepository.findAllByRecordId(searchFilter.getRecordId()));
@@ -99,7 +155,7 @@ public class ObservabilityService {
      * @throws DataAccessException If any database access error occurs.
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
     */
-    public List<Log> getAllLogsByFilter(LogSearchFilter searchFilter) throws DataAccessException, IllegalArgumentException {
+    public List<Log> getAllLogsByFilter(LogSearchFilterDto searchFilter) throws DataAccessException, IllegalArgumentException {
 
         validatorService.validateLogSearchFilter(searchFilter);
 
@@ -114,6 +170,44 @@ public class ObservabilityService {
             searchFilter.getCreatedAtEnd(),
             PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize())
         ));
+    }
+
+    ///..
+    /**
+     * Sets the readiness state of this application to {@link ReadinessState#REFUSING_TRAFFIC} for the specified duration.
+     * @param duration : The downtime duration, such as {@code PnDTnHnMn.nS}, formatted according to the {@code ISO-8601} format.
+     * @throws NullPointerException If {@code duration} is {@code null}.
+     * @throws DateTimeParseException If {@code duration} cannot be parsed.
+    */
+    @Async
+    public void notReadyFor(String duration) throws DateTimeParseException, NullPointerException {
+
+        if(readiness.getIsReady().compareAndSet(true, false)) {
+
+            log.info("Refusing traffic for {}", duration);
+
+            Duration downDuration = Duration.parse(duration);
+            readiness.setDownDuration(downDuration);
+
+            AvailabilityChangeEvent.publish(applicationContext, ReadinessState.REFUSING_TRAFFIC);
+
+            try {
+
+                Thread.sleep(downDuration);
+            }
+
+            catch(InterruptedException exc) {
+
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted, restoring readiness");
+            }
+
+            readiness.setDownDuration(null);
+            readiness.getIsReady().set(true);
+
+            AvailabilityChangeEvent.publish(applicationContext, ReadinessState.ACCEPTING_TRAFFIC);
+            log.info("Accepting traffic");
+        }
     }
 
     ///..
@@ -140,6 +234,14 @@ public class ObservabilityService {
     public void deleteAllLogsByPeriod(long start, long end) throws DataAccessException {
 
         logRepository.deleteAllByPeriod(start, end);
+    }
+
+    ///.
+    @EventListener
+    protected void handleRequestHandledEvent(ServletRequestHandledEvent event) {
+
+        String uri = event.getMethod() + event.getRequestUrl();
+        statisticsTracker.incrementResponse(event.getStatusCode(), (int)event.getProcessingTimeMillis(), uri);
     }
 
     ///

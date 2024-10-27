@@ -35,8 +35,8 @@ import lombok.Setter;
 public class Subscription {
 
     ///
-    public final static transient String COLUMNS = "id,publisher,subscriber,notify,created_at,updated_at";
-    public final static transient String TABLE_NAME = "SUBSCRIPTION";
+    public static final String COLUMNS = "id,publisher,subscriber,notify,created_at,updated_at";
+    public static final String TABLE_NAME = "SUBSCRIPTION";
 
     ///.
     @Id @Column(name = "id")

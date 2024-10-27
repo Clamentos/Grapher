@@ -91,8 +91,10 @@
 					</excludes>
 
 					<jvmArguments>
-						-Xms67108864
-						-Xmx8589934592
+						-Xmx2147483648
+						-XX:+UseG1GC
+						-XX:+UseStringDeduplication
+						-XX:-FlightRecorder
 					</jvmArguments>
 
 				</configuration>

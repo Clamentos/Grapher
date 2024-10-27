@@ -223,22 +223,17 @@ public class SessionService {
 
         ForgotPasswordEvent event = new ForgotPasswordEvent(
 
-            forgotPasswordSessionId,
-            username,
-            email,
-            now + forgotPasswordDuration
+            forgotPasswordSessionId, username, email, (now + forgotPasswordDuration)
         );
 
         boolean sent = false;
 
-        for(int i = 0; i < 2; i++) {
+        for(int i = 0; i < 2 && !sent; i++) {
 
             try {
 
                 producer.sendForgotPasswordEvent(event);
                 sent = true;
-
-                break;
             }
 
             catch(AmqpException exc) {
@@ -247,11 +242,19 @@ public class SessionService {
                 sent = false;
             }
 
-            try { Thread.sleep(2500); }
-            catch(InterruptedException exc) { break; }
+            try {
+
+                Thread.sleep(2500);
+            }
+
+            catch(InterruptedException exc) {
+
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
 
-        if(sent == false) {
+        if(!sent) {
 
             throw new NotificationException(ErrorFactory.create(
 
@@ -260,6 +263,7 @@ public class SessionService {
         }
 
         Pair<String, Long> session = Pair.of(username, now + forgotPasswordDuration);
+
         forgotPasswordSessions.put(forgotPasswordSessionId, session);
         forgotPasswordUsers.put(username, forgotPasswordSessionId);
     }
@@ -297,7 +301,7 @@ public class SessionService {
             ));
         }
 
-        boolean hasNone = roles.size() > 0 && roles.contains(session.getUserRole()) == false;
+        boolean hasNone = !roles.isEmpty() && !roles.contains(session.getUserRole());
         boolean failsMinimum = minimumRequiredRole != null && session.getUserRole().compareTo(minimumRequiredRole) < 0;
 
         if(hasNone || failsMinimum) {
@@ -371,7 +375,10 @@ public class SessionService {
             }
         }
 
-        try { sessionRepository.saveAll(updatedSessions); }
+        try {
+
+            sessionRepository.saveAll(updatedSessions);
+        }
 
         catch(DataAccessException exc) {
 
@@ -394,24 +401,7 @@ public class SessionService {
     @Transactional
     public void remove(String sessionId) throws AuthenticationException, DataAccessException, NullPointerException {
 
-        Session toBeRemoved = sessions.get(sessionId);
-
-        if(toBeRemoved == null) {
-
-            throw new AuthenticationException(ErrorFactory.create(
-
-                ErrorCode.SESSION_NOT_FOUND, "SessionService::remove -> Session not found"
-            ));
-        }
-
-        sessionRepository.delete(toBeRemoved);
-        Session removed = sessions.remove(sessionId);
-
-        if(removed != null) {
-
-            int count = userSessionCounters.get(toBeRemoved.getUserId()).decrementAndGet();
-            if(count <= 0) userSessionCounters.remove(toBeRemoved.getUserId());
-        }
+        this.removeInternal(sessionId);
     }
 
     ///..
@@ -426,8 +416,12 @@ public class SessionService {
 
             if(session.getUserId() == userId) {
 
-                try { remove(session.getId()); }
-                catch(AuthenticationException exc) {} // The session was not found. It's ok, can happen due to concurrency.
+                try {
+
+                    this.removeInternal(session.getId());
+                }
+
+                catch(AuthenticationException exc) { log.warn("Session not found"); }
                 catch(DataAccessException exc) { log.error("Could not remove session because: {}, will skip this one", exc); }
             }
         }
@@ -465,16 +459,39 @@ public class SessionService {
 
                 try {
 
-                    remove(session.getKey());
+                    this.removeInternal(session.getKey());
                     deletedCount++;
                 }
 
-                catch(AuthenticationException exc) {} // The session was not found. It's ok, this is a cleaning method.
+                catch(AuthenticationException exc) { log.warn("Session not found"); }
                 catch(DataAccessException exc) { log.error("Could not remove expired session because: {}, will skip this one", exc); }
             }
         }
 
         log.info("Expired session cleaning task completed, deleted: {} / {}", deletedCount, expiredCount);
+    }
+
+    ///.
+    private void removeInternal(String sessionId) throws AuthenticationException, DataAccessException, NullPointerException {
+
+        Session toBeRemoved = sessions.get(sessionId);
+
+        if(toBeRemoved == null) {
+
+            throw new AuthenticationException(ErrorFactory.create(
+
+                ErrorCode.SESSION_NOT_FOUND, "SessionService::remove -> Session not found"
+            ));
+        }
+
+        sessionRepository.delete(toBeRemoved);
+        Session removed = sessions.remove(sessionId);
+
+        if(removed != null) {
+
+            int count = userSessionCounters.get(toBeRemoved.getUserId()).decrementAndGet();
+            if(count <= 0) userSessionCounters.remove(toBeRemoved.getUserId());
+        }
     }
 
     ///

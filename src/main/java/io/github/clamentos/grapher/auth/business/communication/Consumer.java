@@ -6,6 +6,7 @@ import io.github.clamentos.grapher.auth.business.communication.events.AuthRespon
 
 ///..
 import io.github.clamentos.grapher.auth.business.services.SessionService;
+import io.github.clamentos.grapher.auth.business.services.ValidatorService;
 
 ///..
 import io.github.clamentos.grapher.auth.error.ErrorCode;
@@ -15,10 +16,12 @@ import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
+import io.github.clamentos.grapher.auth.persistence.UserRole;
+
+///..
 import io.github.clamentos.grapher.auth.persistence.entities.Session;
 
 ///.
-import java.util.ArrayList;
 import java.util.List;
 
 ///.
@@ -45,14 +48,16 @@ public class Consumer {
     ///
     private final Producer producer;
     private final SessionService sessionService;
+    private final ValidatorService validatorService;
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public Consumer(Producer producer, SessionService sessionService) {
+    public Consumer(Producer producer, SessionService sessionService, ValidatorService validatorService) {
 
         this.producer = producer;
         this.sessionService = sessionService;
+        this.validatorService = validatorService;
     }
 
     ///
@@ -64,7 +69,7 @@ public class Consumer {
     @RabbitListener(queues = "GraphMsToAuthMsQueue")
     public void processFromGraphMs(AuthRequest authRequest) {
 
-        processAndRespond(authRequest, "AuthMsToGraphMsQueue");
+        this.processAndRespond(authRequest, "AuthMsToGraphMsQueue");
     }
 
     ///..
@@ -76,59 +81,64 @@ public class Consumer {
     @RabbitListener(queues = "MessageMsToAuthMsQueue")
     public void processFromMessageMs(AuthRequest authRequest) {
 
-        processAndRespond(authRequest, "AuthMsToMessageMsQueue");
+        this.processAndRespond(authRequest, "AuthMsToMessageMsQueue");
     }
 
     ///.
     private void processAndRespond(AuthRequest authRequest, String destination) throws NullPointerException {
 
         Session session = null;
-        ErrorCode errorCode = null;
-        List<String> errorArguments = new ArrayList<>();
 
         try {
 
-            if(authRequest.getSessionId() != null && authRequest.getRequiredRoles() != null) {
+            validatorService.requireNotNull(authRequest.getSessionId(), "sessionId");
+            validatorService.requireNotNull(authRequest.getRequiredRoles(), "requiredRoles");
 
-                session = sessionService.check(
+            session = sessionService.check(
 
-                    authRequest.getSessionId(),
-                    authRequest.getRequiredRoles(),
-                    authRequest.getMinimumRequiredRole(),
-                    "Check failed for source: " + destination
-                );   
-            }
-
-            else errorCode = ErrorCode.VALIDATOR_REQUIRE_NOT_NULL;
+                authRequest.getSessionId(),
+                authRequest.getRequiredRoles(),
+                authRequest.getMinimumRequiredRole(),
+                "Check failed for source: " + destination
+            );
         }
 
-        catch(AuthenticationException | AuthorizationException exc) {
+        catch(AuthenticationException | AuthorizationException | IllegalArgumentException exc) {
 
-            String[] splits = exc.getMessage().split("/");
+            producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), exc, session));
+            return;
+        }
 
-            if(splits.length > 1) {
+        producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), null, session));
+    }
 
-                errorCode = ErrorCode.valueOf(splits[0]);
+    ///..
+    private AuthResponse generateResponse(String requestId, Throwable exception, Session session) {
 
-                if(splits.length > 2) {
+        long userId = session != null ? session.getUserId() : -1L;
+        String username = session != null ? session.getUsername() : null;
+        UserRole userRole = session != null ? session.getUserRole() : null;
 
-                    for(int i = 2; i < splits.length; i++) {
+        if(exception == null) return(new AuthResponse(requestId, null, List.of(), userId, username, userRole));
 
-                        errorArguments.add(splits[i]);
-                    }
+        String[] splits = exception.getMessage().split("/");
+        ErrorCode errorCode = null;
+        List<String> errorArguments = List.of();
+
+        if(splits.length > 1) {
+
+            errorCode = ErrorCode.valueOf(splits[0]);
+
+            if(splits.length > 2) {
+
+                for(int i = 2; i < splits.length; i++) {
+
+                    errorArguments.add(splits[i]);
                 }
             }
         }
 
-        producer.respondToAuthRequest(destination, new AuthResponse(
-
-            authRequest.getRequestId(),
-            errorCode,
-            errorArguments,
-            session != null ? session.getUserId() : -1,
-            session != null ? session.getUsername() : null,
-            session != null ? session.getUserRole() : null
-        ));
+        return(new AuthResponse(requestId, errorCode, errorArguments, userId, username, userRole));
     }
 
     ///

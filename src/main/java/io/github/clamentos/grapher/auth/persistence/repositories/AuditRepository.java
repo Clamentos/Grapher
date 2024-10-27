@@ -7,8 +7,8 @@ import io.github.clamentos.grapher.auth.persistence.AuditAction;
 import io.github.clamentos.grapher.auth.persistence.entities.Audit;
 
 ///.
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 ///.
 import org.springframework.data.domain.Pageable;
@@ -17,9 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-
-///..
-import org.springframework.data.repository.query.Param;
 
 ///..
 import org.springframework.stereotype.Repository;
@@ -61,16 +58,16 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     */
     @Query(
 
-        value = "SELECT a FROM Audit AS a WHERE a.tableName IN :tn AND a.action IN :aa AND a.createdAt BETWEEN :cs AND :ce " +
-                "AND (:cb is null OR a.createdBy IN :cb)"
+        value = "SELECT a FROM Audit AS a WHERE a.tableName IN ?1 AND a.action IN ?2 AND a.createdAt BETWEEN ?3 AND ?4 " +
+                "AND (?5 is null OR a.createdBy IN ?5)"
     )
     List<Audit> findAllByFilter(
 
-        @Param("tn") Collection<String> tableNames,
-        @Param("aa") Collection<AuditAction> auditActions,
-        @Param("cs") long createdAtStart,
-        @Param("ce") long createdAtEnd,
-        @Param("cb") Collection<String> createdByNames,
+        Set<String> tableNames,
+        Set<AuditAction> auditActions,
+        long createdAtStart,
+        long createdAtEnd,
+        Set<String> createdByNames,
         Pageable pageRequest
     );
 

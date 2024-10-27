@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.communication.events;
 
 ///
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+///.
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -18,7 +21,8 @@ import lombok.Getter;
 public final class ForgotPasswordEvent {
 
     ///
-    public static final transient String TYPE = "ForgotPasswordEvent";
+    @JsonIgnore
+    public static final String TYPE = "ForgotPasswordEvent";
 
     ///.
     private final String forgotPasswordSessionId;

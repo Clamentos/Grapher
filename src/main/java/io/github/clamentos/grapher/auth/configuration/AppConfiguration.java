@@ -1,19 +1,13 @@
 package io.github.clamentos.grapher.auth.configuration;
 
-///..
-import io.github.clamentos.grapher.auth.business.communication.Producer;
-
-///..
+///
 import io.github.clamentos.grapher.auth.business.services.SessionService;
 
 ///..
-import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
+import io.github.clamentos.grapher.auth.monitoring.Readiness;
 
 ///..
 import io.github.clamentos.grapher.auth.persistence.UserRole;
-
-///..
-import io.github.clamentos.grapher.auth.utility.BeanProvider;
 
 ///..
 import io.github.clamentos.grapher.auth.web.RequestInterceptor;
@@ -26,22 +20,22 @@ import java.util.Set;
 ///..
 import java.util.concurrent.ConcurrentHashMap;
 
-///..
-import java.util.function.Consumer;
-
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
-
-///..
-import org.springframework.boot.LazyInitializationExcludeFilter;
 
 ///..
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 ///..
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+
+///..
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+///..
+import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
 
 ///..
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -65,7 +59,7 @@ public class AppConfiguration implements WebMvcConfigurer {
 
     ///
     private final SessionService sessionService;
-    private final StatisticsTracker statisticsTracker;
+    private final Readiness readiness;
 
     ///..
     private final Set<String> authenticationExcludedPaths;
@@ -75,10 +69,10 @@ public class AppConfiguration implements WebMvcConfigurer {
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public AppConfiguration(SessionService sessionService, StatisticsTracker statisticsTracker) {
+    public AppConfiguration(SessionService sessionService, Readiness readiness) {
 
         this.sessionService = sessionService;
-        this.statisticsTracker = statisticsTracker;
+        this.readiness = readiness;
 
         authenticationExcludedPaths = new HashSet<>();
 
@@ -97,7 +91,9 @@ public class AppConfiguration implements WebMvcConfigurer {
 
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/status", admin);
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/audits", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/observability/logs/count", admin);
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/logs", admin);
+        authorizationMappings.put("PATCH/grapher/v1/auth-service/observability/ready", admin);
         authorizationMappings.put("DELETE/grapher/v1/auth-service/observability/audits", admin);
         authorizationMappings.put("DELETE/grapher/v1/auth-service/observability/logs", admin);
 
@@ -122,7 +118,7 @@ public class AppConfiguration implements WebMvcConfigurer {
             .addInterceptor(new RequestInterceptor(
 
                 sessionService,
-                statisticsTracker,
+                readiness,
                 authenticationExcludedPaths,
                 authenticationOptionalPaths,
                 authorizationMappings)
@@ -132,10 +128,22 @@ public class AppConfiguration implements WebMvcConfigurer {
 	}
 
     ///..
+    /**
+     * Configures the Spring's internal task scheduler to be a {@link SimpleAsyncTaskScheduler} with virtual threads support.
+     * <ul>
+     *   <li>The scheduler spawns 1 virtual thread per task.</li>
+     *   <li>The scheduler generates the following task name prefix: {@code GrapherAuthScheduledTask-}</li>
+     * </ul>
+    */
     @Bean
-    public static LazyInitializationExcludeFilter lazyInitExcludeFilter() {
+    public SimpleAsyncTaskScheduler taskScheduler() {
 
-        return(LazyInitializationExcludeFilter.forBeanTypes(BeanProvider.class, Producer.class, Consumer.class));
+        SimpleAsyncTaskScheduler scheduler = new SimpleAsyncTaskScheduler();
+
+        scheduler.setTargetTaskExecutor(new SimpleAsyncTaskExecutor("GrapherAuthScheduledTask-"));
+        scheduler.setVirtualThreads(true);
+
+        return(scheduler);
     }
 
     ///

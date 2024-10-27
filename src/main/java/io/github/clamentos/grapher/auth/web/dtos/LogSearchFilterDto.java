@@ -1,7 +1,7 @@
 package io.github.clamentos.grapher.auth.web.dtos;
 
 ///
-import java.util.List;
+import java.util.Set;
 
 ///.
 import lombok.Getter;
@@ -18,7 +18,7 @@ import lombok.Setter;
 @Setter
 
 ///
-public final class LogSearchFilter {
+public final class LogSearchFilterDto {
 
     ///
     private Integer pageNumber;
@@ -27,8 +27,8 @@ public final class LogSearchFilter {
     ///..
     private Long timestampStart;
     private Long timestampEnd;
-    private List<String> levels;
-    private List<String> threads;
+    private Set<String> levels;
+    private Set<String> threads;
     private String messageLike;
     private Long createdAtStart;
     private Long createdAtEnd;

@@ -4,15 +4,12 @@ package io.github.clamentos.grapher.auth.web.controllers;
 import io.github.clamentos.grapher.auth.business.services.ObservabilityService;
 
 ///..
-import io.github.clamentos.grapher.auth.monitoring.StatisticsTracker;
-
-///..
 import io.github.clamentos.grapher.auth.persistence.entities.Audit;
 import io.github.clamentos.grapher.auth.persistence.entities.Log;
 
 ///..
-import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilter;
-import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilter;
+import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilterDto;
+import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilterDto;
 
 ///.
 import java.util.List;
@@ -32,6 +29,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 
 ///..
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,21 +50,22 @@ public final class ObservabilityController {
 
     ///
     private final ObservabilityService observabilityService;
-    private final StatisticsTracker statisticsTracker;
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
     @Autowired
-    public ObservabilityController(ObservabilityService observabilityService, StatisticsTracker statisticsTracker) {
+    public ObservabilityController(ObservabilityService observabilityService) {
 
         this.observabilityService = observabilityService;
-        this.statisticsTracker = statisticsTracker;
     }
 
     ///
-    /** @return The never {@code null} empty HTTP response as an "alive" check. */
+    /** 
+     * @return The never {@code null} empty HTTP response as a readiness check.
+     * If the application is not ready, an {@code HTTP 503} response is returned.
+    */
     @GetMapping
-    public ResponseEntity<Void> aliveCheck() {
+    public ResponseEntity<Void> readinessCheck() {
 
         return(ResponseEntity.ok().build());
     }
@@ -76,7 +75,7 @@ public final class ObservabilityController {
     @GetMapping(path = "/status", produces = "application/json")
     public ResponseEntity<Map<String, Object>> getStatus() {
 
-        return(ResponseEntity.ok(statisticsTracker.getStatus()));
+        return(ResponseEntity.ok(observabilityService.getStatus()));
     }
 
     ///..
@@ -88,13 +87,17 @@ public final class ObservabilityController {
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
     */
     @GetMapping(path = "/audits", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<List<Audit>> getAllAuditsByFilter(@RequestBody AuditSearchFilter searchFilter)
+    public ResponseEntity<List<Audit>> getAllAuditsByFilter(@RequestBody AuditSearchFilterDto searchFilter)
     throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(observabilityService.getAllAuditsByFilter(searchFilter)));
     }
 
     ///..
+    /**
+     * @return The total number of logs.
+     * @throws DataAccessException If any database access error occurs.
+    */
     @GetMapping(path = "/logs/count", produces = "text/plain")
     public ResponseEntity<Long> countAllLogs() throws DataAccessException {
 
@@ -110,10 +113,19 @@ public final class ObservabilityController {
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
     */
     @GetMapping(path = "/logs", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<List<Log>> getAllLogsByFilter(@RequestBody LogSearchFilter searchFilter)
+    public ResponseEntity<List<Log>> getAllLogsByFilter(@RequestBody LogSearchFilterDto searchFilter)
     throws DataAccessException, IllegalArgumentException {
 
         return(ResponseEntity.ok(observabilityService.getAllLogsByFilter(searchFilter)));
+    }
+
+    ///..
+    
+    @PatchMapping(path = "/ready", consumes = "text/plain")
+    public ResponseEntity<Void> setServiceNotAvailableForDuration(@RequestBody String duration) {
+
+        observabilityService.notReadyFor(duration);
+        return(ResponseEntity.ok().build());
     }
 
     ///..

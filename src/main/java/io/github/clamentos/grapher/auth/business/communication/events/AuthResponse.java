@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.communication.events;
 
 ///
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+///.
 import io.github.clamentos.grapher.auth.error.ErrorCode;
 
 ///..
@@ -27,7 +30,8 @@ import lombok.Getter;
 public final class AuthResponse {
 
     ///
-    public static final transient String TYPE = "AuthResponse";
+    @JsonIgnore
+    public static final String TYPE = "AuthResponse";
 
     ///.
     private final String requestId;

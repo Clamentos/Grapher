@@ -43,13 +43,13 @@ import lombok.Setter;
 public class User {
 
     ///
-    public final static transient String COLUMNS =
+    public static final String COLUMNS =
 
         "id,username,password,email,profile_picture,about,role,failed_accesses,locked_until," +
         "lock_reason,password_last_changed_at,created_at,created_by,updated_at,updated_by"
     ;
 
-    public final static transient String TABLE_NAME = "GRAPHER_USER";
+    public static final String TABLE_NAME = "GRAPHER_USER";
 
     ///.
     @Id @Column(name = "id")
@@ -158,6 +158,7 @@ public class User {
      * @param createdBy : The creator username.
      * @param updatedAt : The update UNIX timestamp.
      * @param updatedBy : The username of the updating user.
+     * @apiNote This constructor is currently only used for JPA queries.
     */
     public User(
 

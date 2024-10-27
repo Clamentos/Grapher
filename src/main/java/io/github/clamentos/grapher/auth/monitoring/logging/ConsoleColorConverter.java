@@ -21,7 +21,10 @@ public final class ConsoleColorConverter extends ForegroundCompositeConverterBas
 
     ///
     /** Instantiates a new {@link ConsoleColorConverter} object. */
-    public ConsoleColorConverter() { super(); }
+    public ConsoleColorConverter() {
+
+        super();
+    }
 
     ///
     /**

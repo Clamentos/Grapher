@@ -17,9 +17,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 
 ///..
-import org.springframework.scheduling.annotation.Async;
-
-///..
 import org.springframework.stereotype.Component;
 
 ///
@@ -53,7 +50,6 @@ public class Producer {
      * @param authResponse : The response message.
      * @apiNote If the response message cannot be delivered for any reason, it will simply be dropped.
     */
-    @Async
     public void respondToAuthRequest(String destination, AuthResponse authResponse) {
 
         try { template.convertAndSend(destination, "", authResponse); }

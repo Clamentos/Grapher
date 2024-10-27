@@ -81,8 +81,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 
-// TODO: subscriber count in get methods
-
 ///
 public class UserService {
 
@@ -201,7 +199,7 @@ public class UserService {
             ));
         }
 
-        if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), user.getPassword()).verified == true) {
+        if(BCrypt.verifyer().verify(credentials.getPassword().toCharArray(), user.getPassword()).verified) {
 
             user.setFailedAccesses((short)0);
             userRepository.save(user);
@@ -209,7 +207,7 @@ public class UserService {
             Session session = sessionService.generate(user.getId(), user.getUsername(), user.getRole());
 
             log.info("User {} logged in", user.getId());
-            return(new AuthDto(map(user, true), session.getId(), session.getExpiresAt()));
+            return(new AuthDto(this.map(user, true), session.getId(), session.getExpiresAt()));
         }
 
         else {
@@ -336,7 +334,7 @@ public class UserService {
             );
         }
 
-        return(fetchedUsers.stream().map(e -> this.mapMinimal(e)).toList());
+        return(fetchedUsers.stream().map(this::mapMinimal).toList());
     }
 
     ///..
@@ -362,10 +360,7 @@ public class UserService {
             ));
         }
 
-        return(this.map(
-
-            user, Action.SEE_PRIVATE_OTHERS.getAllowedRoles().contains(session.getUserRole()) || session.getUserId() == id
-        ));
+        return(this.map(user, Action.SEE_PRIVATE_OTHERS.getAllowedRoles().contains(session.getUserRole()) || session.getUserId() == id));
     }
 
     ///..
@@ -387,18 +382,18 @@ public class UserService {
 
         validatorService.validateAndSanitize(userDetails, true);
 
-        User user = userRepository.findById(userDetails.getId()).orElseThrow(() -> {
+        User user = userRepository.findById(userDetails.getId()).orElseThrow(() ->
 
-            return(new EntityNotFoundException(ErrorFactory.create(
+            new EntityNotFoundException(ErrorFactory.create(
 
                 ErrorCode.USER_NOT_FOUND, "UserService::updateUser -> User not found", userDetails.getId()
-            )));
-        });
+            ))
+        );
 
         boolean isNotSelf = session.getUserId() != user.getId();
         long now = System.currentTimeMillis();
 
-        if(isNotSelf == false && user.getLockedUntil() >= now) {
+        if(!isNotSelf && user.getLockedUntil() >= now) {
 
             throw new AuthorizationException(ErrorFactory.create(
 
@@ -409,6 +404,8 @@ public class UserService {
             ));
         }
 
+        this.checkActionsForUpdate(userDetails, isNotSelf);
+
         boolean roleChanged = false;
         boolean userChanged = false;
         boolean passwordChanged = false;
@@ -416,17 +413,9 @@ public class UserService {
 
         if(userDetails.getPassword() != null) {
 
-            if(isNotSelf) {
-
-                throw new IllegalActionException(ErrorFactory.create(
-
-                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the password of others"
-                ));
-            }
-
             validatorService.validatePassword(userDetails.getPassword(), "password");
 
-            if(BCrypt.verifyer().verify(userDetails.getPassword().toCharArray(), user.getPassword()).verified == true) {
+            if(BCrypt.verifyer().verify(userDetails.getPassword().toCharArray(), user.getPassword()).verified) {
 
                 throw new IllegalActionException(ErrorFactory.create(
 
@@ -445,14 +434,6 @@ public class UserService {
 
         if(userDetails.getEmail() != null) {
 
-            if(isNotSelf) {
-
-                throw new IllegalActionException(ErrorFactory.create(
-
-                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the email of others"
-                ));
-            }
-
             validatorService.validateEmail(userDetails.getEmail(), "email");
 
             user.setEmail(userDetails.getEmail());
@@ -463,14 +444,6 @@ public class UserService {
 
         if(userDetails.getAbout() != null) {
 
-            if(isNotSelf) {
-
-                throw new IllegalActionException(ErrorFactory.create(
-
-                    ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the about of others"
-                ));
-            }
-
             user.setAbout(userDetails.getAbout());
 
             userChanged = true;
@@ -478,14 +451,6 @@ public class UserService {
         }
 
         if(userDetails.getRole() != null) {
-
-            if(isNotSelf == false) {
-
-                throw new IllegalActionException(ErrorFactory.create(
-
-                    ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the role of self"
-                ));
-            }
 
             sessionService.check(
 
@@ -504,14 +469,6 @@ public class UserService {
         }
 
         if(userDetails.getLockedUntil() != null) {
-
-            if(isNotSelf == false) {
-
-                throw new IllegalActionException(ErrorFactory.create(
-
-                    ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the lock date of self"
-                ));
-            }
 
             sessionService.check(
 
@@ -541,7 +498,7 @@ public class UserService {
             updatedColumns.deleteCharAt(updatedColumns.length() - 1);
             auditRepository.save(new Audit(user, AuditAction.UPDATED, username, updatedColumns.toString()));
 
-            if(roleChanged && passwordChanged == false) sessionService.updateRole(session.getUserId(), user.getRole());
+            if(roleChanged && !passwordChanged) sessionService.updateRole(session.getUserId(), user.getRole());
             if(passwordChanged) sessionService.removeAll(session.getUserId());
         }
     }
@@ -572,13 +529,13 @@ public class UserService {
             );
         }
 
-        User user = userRepository.findById(id).orElseThrow(() -> {
+        User user = userRepository.findById(id).orElseThrow(() ->
 
-            return(new EntityNotFoundException(ErrorFactory.create(
+            new EntityNotFoundException(ErrorFactory.create(
 
                 ErrorCode.USER_NOT_FOUND, "UserService::deleteUser -> User not found", id
-            )));
-        });
+            ))
+        );
 
         sessionService.removeAll(id);
         userRepository.delete(user);
@@ -707,6 +664,50 @@ public class UserService {
             -1L,
             null
         ));
+    }
+
+    ///..
+    private void checkActionsForUpdate(UserDto userDto, boolean isNotSelf) throws IllegalActionException {
+
+        if(userDto.getPassword() != null && isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the password of others"
+            ));
+        }
+
+        if(userDto.getEmail() != null && isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the email of others"
+            ));
+        }
+
+        if(userDto.getAbout() != null && isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the about of others"
+            ));
+        }
+
+        if(userDto.getRole() != null && !isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the role of self"
+            ));
+        }
+
+        if(userDto.getLockedUntil() != null && !isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the lock date of self"
+            ));
+        }
     }
 
     ///

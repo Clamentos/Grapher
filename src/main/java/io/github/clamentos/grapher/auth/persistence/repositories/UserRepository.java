@@ -8,6 +8,7 @@ import io.github.clamentos.grapher.auth.persistence.entities.User;
 
 ///.
 import java.util.List;
+import java.util.Set;
 
 ///.
 import org.springframework.data.domain.Pageable;
@@ -140,13 +141,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     )
     List<User> findAllMinimalByFilters(
 
-        @Param("ro") List<UserRole> roles,
+        @Param("ro") Set<UserRole> roles,
         @Param("cs") long createdAtStart,
         @Param("ce") long createdAtEnd,
         @Param("us") long updatedAtStart,
         @Param("ue") long updatedAtEnd,
-        @Param("cb") List<String> createdByNames,
-        @Param("ub") List<String> updatedByNames,
+        @Param("cb") Set<String> createdByNames,
+        @Param("ub") Set<String> updatedByNames,
         @Param("lcm") Boolean lockedCheckMode,
         @Param("now") long now,
         @Param("pcm") Boolean passwordCheckMode,
@@ -193,14 +194,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     )
     List<User> findAllMinimalByFilters(
 
-        @Param("st") List<String> subscribedTo,
-        @Param("ro") List<UserRole> roles,
+        @Param("st") Set<String> subscribedTo,
+        @Param("ro") Set<UserRole> roles,
         @Param("cs") long createdAtStart,
         @Param("ce") long createdAtEnd,
         @Param("us") long updatedAtStart,
         @Param("ue") long updatedAtEnd,
-        @Param("cb") List<String> createdByNames,
-        @Param("ub") List<String> updatedByNames,
+        @Param("cb") Set<String> createdByNames,
+        @Param("ub") Set<String> updatedByNames,
         @Param("lcm") Boolean lockedCheckMode,
         @Param("now") long now,
         @Param("pcm") Boolean passwordCheckMode,

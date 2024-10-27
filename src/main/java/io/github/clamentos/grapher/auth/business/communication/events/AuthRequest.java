@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.communication.events;
 
 ///
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+///.
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///.
@@ -24,7 +27,8 @@ import lombok.Setter;
 public final class AuthRequest {
 
     ///
-    public static final transient String TYPE = "AuthRequest";
+    @JsonIgnore
+    public static final String TYPE = "AuthRequest";
 
     ///.
     private String requestId;

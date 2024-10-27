@@ -5,6 +5,7 @@ import io.github.clamentos.grapher.auth.persistence.entities.Log;
 
 ///.
 import java.util.List;
+import java.util.Set;
 
 ///.
 import org.springframework.data.domain.Pageable;
@@ -13,9 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-
-///..
-import org.springframework.data.repository.query.Param;
 
 ///..
 import org.springframework.stereotype.Repository;
@@ -50,18 +48,18 @@ public interface LogRepository extends JpaRepository<Log, Long> {
     */
     @Query(
 
-        value = "SELECT l FROM Log AS l WHERE l.timestamp BETWEEN :ts AND :te AND l.level IN :l AND " +
-                "(:t is null OR l.thread IN :t) AND l.message LIKE %:m% AND l.createdAt BETWEEN :cs AND :ce"
+        value = "SELECT l FROM Log AS l WHERE l.timestamp BETWEEN ?1 AND ?2 AND l.level IN ?3 AND " +
+                "(?4 is null OR l.thread IN ?4) AND l.message LIKE %?5% AND l.createdAt BETWEEN ?6 AND ?7"
     )
     List<Log> findAllByFilter(
 
-        @Param("ts") long timestampStart,
-        @Param("te") long timestampEnd,
-        @Param("l") List<String> levels,
-        @Param("t") List<String> threads,
-        @Param("m") String messageLike,
-        @Param("cs") long createdAtStart,
-        @Param("ce") long createdAtEnd,
+        long timestampStart,
+        long timestampEnd,
+        Set<String> levels,
+        Set<String> threads,
+        String messageLike,
+        long createdAtStart,
+        long createdAtEnd,
         Pageable pageRequest
     );
 

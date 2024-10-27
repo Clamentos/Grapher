@@ -4,7 +4,7 @@ package io.github.clamentos.grapher.auth.web.dtos;
 import io.github.clamentos.grapher.auth.persistence.AuditAction;
 
 ///.
-import java.util.List;
+import java.util.Set;
 
 ///.
 import lombok.Getter;
@@ -21,7 +21,7 @@ import lombok.Setter;
 @Setter
 
 ///
-public final class AuditSearchFilter {
+public final class AuditSearchFilterDto {
 
     ///
     private Integer pageNumber;
@@ -29,11 +29,11 @@ public final class AuditSearchFilter {
 
     ///..
     private Long recordId;
-    private List<String> tableNames;
-    private List<AuditAction> auditActions;
+    private Set<String> tableNames;
+    private Set<AuditAction> auditActions;
     private Long createdAtStart;
     private Long createdAtEnd;
-    private List<String> createdByNames;
+    private Set<String> createdByNames;
 
     ///
 }

@@ -11,6 +11,7 @@ import java.lang.management.ThreadMXBean;
 
 ///..
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 ///..
@@ -21,6 +22,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
+
+///..
+import org.springframework.data.domain.Range;
 
 ///..
 import org.springframework.stereotype.Service;
@@ -41,10 +45,9 @@ public class StatisticsTracker {
     private final SessionService sessionService;
 
     ///..
-    private final AtomicLong incomingRequestCounter;
     private final Map<Integer, AtomicLong> responseStatusCounters;
+    private final Map<String, TimeSamples> requestTimeSamples;
 
-    ///..
     private final Map<String, AtomicLong> brokerRequestCounters;
     private final Map<String, AtomicLong> brokerResponseCounters;
 
@@ -61,7 +64,7 @@ public class StatisticsTracker {
         this.sessionService = sessionService;
 
         responseStatusCounters = new ConcurrentHashMap<>();
-        incomingRequestCounter = new AtomicLong();
+        requestTimeSamples = new ConcurrentHashMap<>();
         brokerRequestCounters = new ConcurrentHashMap<>();
         brokerResponseCounters = new ConcurrentHashMap<>();
 
@@ -71,20 +74,16 @@ public class StatisticsTracker {
     }
 
     ///
-    /** Increments the requests received counter by one. */
-    public void incrementIncomingRequestCount() {
-
-        incomingRequestCounter.incrementAndGet();
-    }
-
-    ///..
     /**
-     * Increments the corresponding response status counter by one.
+     * Increments the corresponding response status counter by one and stores the execution time.
      * @param status : The response status.
+     * @param time : The execution time of the request in milliseconds.
+     * @param uri : The request URI.
     */
-    public void incrementResponseStatusCounts(int status) {
+    public void incrementResponse(int status, int time, String uri) {
 
         responseStatusCounters.computeIfAbsent(status, key -> new AtomicLong()).incrementAndGet();
+        requestTimeSamples.computeIfAbsent(uri, key -> new TimeSamples(1024)).put(time);
     }
 
     ///..
@@ -113,7 +112,6 @@ public class StatisticsTracker {
     /** @return The never {@code null} application status summary. */
     public Map<String, Object> getStatus() {
 
-        this.incrementResponseStatusCounts(200);
         Map<String, Object> runtimeInfo = new HashMap<>();
 
         runtimeInfo.put("inputArguments", runtimeBean.getInputArguments());
@@ -138,13 +136,13 @@ public class StatisticsTracker {
 
         Map<String, Object> requestsResponsesInfo = new HashMap<>();
 
-        requestsResponsesInfo.put("incomingRequestCount", incomingRequestCounter.get());
-        requestsResponsesInfo.put("responseStatusCounts", extract(responseStatusCounters));
+        requestsResponsesInfo.put("responseStatusCounts", this.extract(responseStatusCounters));
+        requestsResponsesInfo.put("latencyDistribution", this.calculateDistributions(requestTimeSamples));
 
         Map<String, Object> brokerInfo = new HashMap<>();
 
-        brokerInfo.put("brokerRequestCounts", extract(brokerRequestCounters));
-        brokerInfo.put("brokerResponseCounts", extract(brokerResponseCounters));
+        brokerInfo.put("brokerRequestCounts", this.extract(brokerRequestCounters));
+        brokerInfo.put("brokerResponseCounts", this.extract(brokerResponseCounters));
 
         Map<String, Object> status = new HashMap<>();
 
@@ -159,8 +157,8 @@ public class StatisticsTracker {
         return(status);
     }
 
-    ///..
-    private <T> Map<T, Long> extract(Map<T, AtomicLong> inputMap) {
+    ///.
+    private <T> Map<T, Long> extract(Map<T, AtomicLong> inputMap) throws NullPointerException {
 
         Map<T, Long> extractedMap = new HashMap<>();
 
@@ -170,6 +168,69 @@ public class StatisticsTracker {
         }
 
         return(extractedMap);
+    }
+
+    ///..
+    private Map<String, Map<String, Integer>> calculateDistributions(Map<String, TimeSamples> requestTimeSamples) {
+
+        Map<String, Map<String, Integer>> distributions = new HashMap<>();
+
+        for(Map.Entry<String, TimeSamples> entry : requestTimeSamples.entrySet()) {
+
+            distributions.put(entry.getKey(), this.calculateDistribution(entry.getValue()));
+        }
+
+        return(distributions);
+    }
+
+    ///..
+    private Map<String, Integer> calculateDistribution(TimeSamples requestTimeSamples) {
+
+        int[] samples = requestTimeSamples.getAll();
+        int max = 0;
+
+        for(int i = 0; i < samples.length; i++) {
+
+            max = Math.max(max, samples[i]);
+        }
+
+        // int[] always has 1 element, used as an "indirect" value.
+        Map<Range<Integer>, int[]> buckets = new LinkedHashMap<>();
+        int bucketSize = Math.ceilDiv(max, 20);
+        int start = 0;
+
+        for(int i = 0; i < 20; i++) {
+
+            buckets.put(Range.rightOpen(start, start + bucketSize), new int[]{0});
+            start += bucketSize;
+        }
+
+        for(int i = 0; i < samples.length; i++) {
+
+            if(samples[i] > 0) {
+
+                for(Map.Entry<Range<Integer>, int[]> entry : buckets.entrySet()) {
+
+                    if(entry.getKey().contains(samples[i])) {
+    
+                        entry.getValue()[0]++;
+                        break;
+                    }
+                }
+            }
+        }
+
+        Map<String, Integer> distribution = new LinkedHashMap<>();
+
+        for(Map.Entry<Range<Integer>, int[]> entry : buckets.entrySet()) {
+
+            int lowerBound = entry.getKey().getLowerBound().getValue().get();
+            int upperBound = entry.getKey().getUpperBound().getValue().get() - 1;
+
+            distribution.put(Integer.toString(lowerBound) + "-" + Integer.toString(upperBound), entry.getValue()[0]);
+        }
+
+        return(distribution);
     }
 
     ///

@@ -104,21 +104,21 @@ public class SubscriptionService {
 
         validatorService.validateSubscription(subscription);
 
-        User subscriber = userRepository.findById(session.getUserId()).orElseThrow(() -> {
+        User subscriber = userRepository.findById(session.getUserId()).orElseThrow(() ->
 
-            return(new EntityNotFoundException(ErrorFactory.create(
+            new EntityNotFoundException(ErrorFactory.create(
 
                 ErrorCode.USER_NOT_FOUND, "SubscriptionService::subscribe -> Subscriber not found", session.getUserId()
-            )));
-        });
+            ))
+        );
 
-        User publisher = userRepository.findById(subscription.getPublisher()).orElseThrow(() -> {
+        User publisher = userRepository.findById(subscription.getPublisher()).orElseThrow(() ->
 
-            return(new EntityNotFoundException(ErrorFactory.create(
+            new EntityNotFoundException(ErrorFactory.create(
 
                 ErrorCode.USER_NOT_FOUND, "SubscriptionService::subscribe -> Publisher not found", subscription.getPublisher()
-            )));
-        });
+            ))
+        );
 
         if(publisher.getRole().compareTo(UserRole.CREATOR) < 0) {
 
@@ -181,7 +181,7 @@ public class SubscriptionService {
                 ));
             }
 
-            subscriptionEntity.setNotify(subscription.getNotify() != null ? subscription.getNotify() : false);
+            subscriptionEntity.setNotify(subscription.getNotify() != null && subscription.getNotify());
             subscriptionEntity.setUpdatedAt(now);
 
             audits.add(new Audit(subscriptionEntity, AuditAction.UPDATED, now, session.getUsername(), "notify,updated_at"));

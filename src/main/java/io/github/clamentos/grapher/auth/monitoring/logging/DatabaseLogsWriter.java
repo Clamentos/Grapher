@@ -62,7 +62,10 @@ public class DatabaseLogsWriter {
 
     ///
     private final LogRepository logRepository;
+
+    ///..
     private final String logsPath;
+    private final int batchSize;
 
     ///..
     private final Pattern pattern;
@@ -75,47 +78,67 @@ public class DatabaseLogsWriter {
 
         this.logRepository = logRepository;
         logsPath = environment.getProperty("grapher-auth.logsPath", String.class);
+        batchSize = environment.getProperty("spring.jpa.properties.hibernate.jdbc.batch_size", Integer.class, 64);
 
         pattern = Pattern.compile("\\|");
         formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss.SSS");
     }
 
     ///
-    @Scheduled(cron = "1/60 * * * * *")
-    private void dump() {
+    @Scheduled(fixedRate = 120_000)
+    protected void dump() {
 
         log.info("Starting logs dumping task...");
 
-        try { Thread.sleep(2000); }
-        catch(InterruptedException exc) { log.warn("Interrupted"); }
+        try {
 
-        int totalLogsWritten = 0;
+            // Wait for logback to spawn a new file if the previous log triggered a rollover.
+            Thread.sleep(1500);
+        }
+
+        catch(InterruptedException exc) {
+
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted, ignoring...");
+        }
+
+        int[] totalLogsWritten = new int[]{0}; // Used as an "indirect" integer, otherwise lambda complains, without using AtomicInteger.
         int totalFilesCleaned = 0;
 
         try {
 
-            boolean[] halt = new boolean[]{false}; // Used as an "indirect" variable.
-
             List<Path> paths = Files
 
                 .list(Paths.get(logsPath))
-                .filter(path -> Files.isDirectory(path) == false)
+                .filter(path -> !Files.isDirectory(path))
                 .sorted((first, second) -> second.getFileName().compareTo(first.getFileName()))
                 .skip(1)
                 .toList()
             ;
 
-            if(halt[0] == false) {
+            for(Path path : paths) {
 
-                for(Path path : paths) {
+                List<String> lines = new ArrayList<>(batchSize);
 
-                    List<String> lines = Files.readAllLines(path);
+                Files.lines(path).forEach(line -> {
+
+                    lines.add(line);
+                    totalLogsWritten[0]++;
+
+                    if(lines.size() == batchSize) {
+
+                        this.write(lines);
+                        lines.clear();
+                    }
+                });
+
+                if(!lines.isEmpty()) {
+
                     this.write(lines);
-                    Files.delete(path);
-
-                    totalLogsWritten += lines.size();
-                    totalFilesCleaned++;
                 }
+
+                Files.delete(path);
+                totalFilesCleaned++;
             }
         }
 
@@ -124,10 +147,7 @@ public class DatabaseLogsWriter {
             log.error("Could not process files, will abort the job", exc);
         }
 
-        if(totalFilesCleaned > 0) {
-
-            log.info("Logs dumping task completed, written {} logs over {} files", totalLogsWritten, totalFilesCleaned);
-        }
+        log.info("Logs dumping task completed, written {} logs over {} files", totalLogsWritten[0], totalFilesCleaned);
     }
 
     ///..
@@ -138,7 +158,7 @@ public class DatabaseLogsWriter {
 
         for(String line : lines) {
 
-            String[] sections = pattern.split(line); // section[0] is the initial '|'
+            String[] sections = pattern.split(line); // section[0] is the initial '|' and can be discarded.
             long timestamp = LocalDateTime.parse(sections[1], formatter).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             logs.add(new Log(0, timestamp, sections[2].trim(), sections[3], sections[4], sections[5], now));

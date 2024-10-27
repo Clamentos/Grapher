@@ -4,7 +4,7 @@ package io.github.clamentos.grapher.auth.web.dtos;
 import io.github.clamentos.grapher.auth.persistence.UserRole;
 
 ///.
-import java.util.List;
+import java.util.Set;
 
 ///.
 import lombok.Getter;
@@ -30,14 +30,14 @@ public final class UserSearchFilterDto {
     ///..
     private String usernameLike;
     private String emailLike;
-    private List<UserRole> roles;
+    private Set<UserRole> roles;
     private Long createdAtStart;
     private Long createdAtEnd;
-    private List<String> createdByNames;
+    private Set<String> createdByNames;
     private Long updatedAtStart;
     private Long updatedAtEnd;
-    private List<String> updatedByNames;
-    private List<String> subscribedToNames;
+    private Set<String> updatedByNames;
+    private Set<String> subscribedToNames;
     private Boolean lockedCheckMode;
     private Boolean expiredPasswordCheckMode;
     private Short failedAccesses;
