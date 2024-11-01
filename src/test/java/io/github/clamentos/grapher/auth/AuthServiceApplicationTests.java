@@ -16,22 +16,17 @@ import io.github.clamentos.grapher.auth.web.dtos.UserDto;
 import io.github.clamentos.grapher.auth.web.dtos.UsernamePasswordDto;
 
 ///.
-import java.io.IOException;
-
-///..
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 ///.
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.ClassOrderer;
 import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestClassOrder;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
 
@@ -39,17 +34,19 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 
 ///..
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 ///..
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 
 ///..
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 
 ///..
 import org.springframework.boot.test.context.SpringBootTest;
+
+///..
+import org.springframework.core.env.Environment;
 
 ///..
 import org.springframework.http.HttpStatus;
@@ -67,19 +64,13 @@ import org.springframework.test.context.jdbc.Sql.ExecutionPhase;
 ///..
 import org.springframework.test.web.servlet.MockMvc;
 
-///..
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-
 ///
 @AutoConfigureMockMvc
 @SpringBootTest
 @Sql(scripts = {"/testing_schema.sql"}, executionPhase = ExecutionPhase.BEFORE_TEST_CLASS)
 @TestInstance(value = TestInstance.Lifecycle.PER_CLASS)
 @TestPropertySource(locations = "classpath:application_test.properties")
-@TestClassOrder(value = ClassOrderer.OrderAnnotation.class)
-
-// TODO: validate response payloads...
-// TODO: more tests
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 
 ///
 public class AuthServiceApplicationTests {
@@ -92,14 +83,19 @@ public class AuthServiceApplicationTests {
     private final int maxSessionsPerUser;
 
     ///..
-    private final String baseUrl;
     private final ApplicationApis applicationApis;
+
+    ///..
+    private final String observabilityUrl;
+    private final String subscriptionUrl;
+    private final String userUrl;
+
+    ///..
     private final Map<String, List<String>> sessionIds;
 
     ///..
     private final TypeReference<AuthDto> authDtoType;
     private final TypeReference<ErrorDto> errorDtoType;
-    // private final TypeReference<SubscriptionDto> subscriptionDtoType;
     private final TypeReference<UserDto> userDtoType;
     private final TypeReference<UsernamePasswordDto> usernamePasswordDtoType;
 
@@ -108,44 +104,213 @@ public class AuthServiceApplicationTests {
 
     ///
     @Autowired
-    public AuthServiceApplicationTests(
-
-        MockMvc mockMvc,
-        ObjectMapper objectMapper,
-        @Value("${grapher-auth.maxSessionsPerUser}") int maxSessionsPerUser
-
-    ) throws IOException {
+    public AuthServiceApplicationTests(MockMvc mockMvc, ObjectMapper objectMapper, Environment environment) {
 
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
-        this.maxSessionsPerUser = maxSessionsPerUser;
 
-        baseUrl = "http://localhost:8080";
+        maxSessionsPerUser = environment.getProperty("grapher-auth.maxSessionsPerUser", Integer.class);
         applicationApis = new ApplicationApis(mockMvc);
+
+        String serverPort = environment.getProperty("...", String.class);
+
+        observabilityUrl = "http://localhost:" + serverPort + "/grapher/v1/auth-service/observability";
+        subscriptionUrl = "http://localhost:" + serverPort + "/grapher/v1/auth-service/user/subscriptions";
+        userUrl = "http://localhost:" + serverPort + "/grapher/v1/auth-service/user";
+
         sessionIds = new HashMap<>();
 
         authDtoType = new TypeReference<AuthDto>() {};
         errorDtoType = new TypeReference<ErrorDto>() {};
-        // subscriptionDtoType = new TypeReference<SubscriptionDto>() {};
         userDtoType = new TypeReference<UserDto>() {};
         usernamePasswordDtoType = new TypeReference<UsernamePasswordDto>() {};
     }
 
     ///
-    public void checkErrorDto(ErrorDto errorDto, String expectedPath, ErrorCode expectedErrorCode, String... expectedArgs)
-    throws Exception {
+    static Stream<String> registerSuccessful_supp() { return(RequestBodyFactory.supplier("registerSuccessful")); }
+    static Stream<String> registerInvalidDto_supp() { return(RequestBodyFactory.supplier("registerInvalidDto")); }
 
-        Assertions.assertTrue(errorDto != null);
+    static Stream<String> loginSuccessful_supp() { return(RequestBodyFactory.supplier("loginSuccessful")); }
+    static Stream<String> loginUserNotFound_supp() { return(RequestBodyFactory.supplier("loginUserNotFound")); }
+    static Stream<String> loginWrongPassword_supp() { return(RequestBodyFactory.supplier("loginWrongPassword")); }
+    static Stream<String> loginInvalidDto_supp() { return(RequestBodyFactory.supplier("loginInvalidDto")); }
+
+    ///
+    @ParameterizedTest @Order(1)
+    @MethodSource("registerSuccessful_supp")
+    public void registerSuccessful(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.register(userUrl, null, body);
+        Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+    }
+
+    ///..
+    @ParameterizedTest @Order(2)
+    @MethodSource("registerSuccessful_supp")
+    public void registerAlreadyExists(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.register(userUrl, null, body);
+        Assertions.assertEquals(HttpStatus.CONFLICT.value(), response.getStatus());
+
+        this.checkErrorDto(
+
+            objectMapper.readValue(response.getContentAsString(), errorDtoType),
+            "/grapher/v1/auth-service/user/register",
+            ErrorCode.USER_ALREADY_EXISTS,
+            objectMapper.readValue(body, userDtoType).getUsername()
+        );
+    }
+
+    ///..
+    @ParameterizedTest @Order(3)
+    @MethodSource("registerInvalidDto_supp")
+    public void registerInvalidDto(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.register(userUrl, null, body);
+        Assertions.assertEquals(HttpStatus.BAD_REQUEST.value(), response.getStatus());
+
+        this.checkErrorDto(
+
+            objectMapper.readValue(response.getContentAsString(), errorDtoType),
+            "/grapher/v1/auth-service/user/register"
+        );
+    }
+
+    ///..
+    @ParameterizedTest @Order(4)
+    @MethodSource("loginSuccessful_supp")
+    public void loginSuccessful(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.login(userUrl, body);
+        Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+        UsernamePasswordDto credentials = objectMapper.readValue(body, usernamePasswordDtoType);
+        AuthDto dto = checkAuthDto(objectMapper.readValue(response.getContentAsString(), authDtoType), credentials.getUsername());
+        sessionIds.computeIfAbsent(dto.getUserDetails().getUsername(), key -> new ArrayList<>()).add(dto.getSessionId());
+    }
+
+    ///..
+    @Test @Order(5)
+    public void loginTooManySessions() throws Exception {
+
+        MockHttpServletResponse response = null;
+
+        for(int i = 0; i < maxSessionsPerUser - 1; i++) {
+
+            response = applicationApis.login(userUrl, RequestBodyFactory.requestBodies.get("loginSuccessful_0"));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+            AuthDto dto = objectMapper.readValue(response.getContentAsString(), authDtoType);
+            sessionIds.computeIfAbsent(dto.getUserDetails().getUsername(), key -> new ArrayList<>()).add(dto.getSessionId());
+        }
+
+        response = applicationApis.login(userUrl, RequestBodyFactory.requestBodies.get("loginSuccessful_0"));
+        Assertions.assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
+    }
+
+    ///..
+    @ParameterizedTest @Order(6)
+    @MethodSource("loginUserNotFound_supp")
+    public void loginUserNotFound(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.login(userUrl, body);
+        Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
+
+        this.checkErrorDto(
+
+            objectMapper.readValue(response.getContentAsString(), errorDtoType),
+            "/grapher/v1/auth-service/user/login",
+            ErrorCode.USER_NOT_FOUND,
+            objectMapper.readValue(body, usernamePasswordDtoType).getUsername()
+        );
+    }
+
+    ///..
+    @ParameterizedTest @Order(7)
+    @MethodSource("loginWrongPassword_supp")
+    public void loginWrongPassword(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.login(userUrl, body);
+        Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
+
+        this.checkErrorDto(
+
+            objectMapper.readValue(response.getContentAsString(), errorDtoType),
+            "/grapher/v1/auth-service/user/login",
+            ErrorCode.WRONG_PASSWORD
+        );
+    }
+
+    ///..
+    @ParameterizedTest @Order(8)
+    @MethodSource("loginInvalidDto_supp")
+    public void loginInvalidDto(String body) throws Exception {
+
+        MockHttpServletResponse response = applicationApis.login(userUrl, body);
+        Assertions.assertEquals(HttpStatus.BAD_REQUEST.value(), response.getStatus());
+
+        this.checkErrorDto(
+
+            objectMapper.readValue(response.getContentAsString(), errorDtoType),
+            "/grapher/v1/auth-service/user/login"
+        );
+    }
+
+    ///..
+    @Test @Order(9)
+    public void logoutSuccessful() throws Exception {
+
+        String username = (String)sessionIds.keySet().toArray()[0];
+        String sessionId = sessionIds.get(username).get(0);
+        MockHttpServletResponse response = applicationApis.logout(userUrl, sessionId);
+        Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+        tempSessionId = sessionIds.get("TestUser").remove(0);
+    }
+
+    ///..
+    @Test @Order(10)
+    public void logoutAllSuccessful() throws Exception {
+
+        for(String username : sessionIds.keySet()) {
+
+            MockHttpServletResponse response = applicationApis.logoutAll(userUrl, sessionIds.get(username).get(0));
+            Assertions.assertEquals(HttpStatus.OK.value(), response.getStatus());
+            sessionIds.remove(username);
+        }
+    }
+
+    ///..
+    @Test @Order(11)
+    public void logoutSessionNotFound() throws Exception {
+
+        var response = applicationApis.logout(userUrl, tempSessionId);
+        Assertions.assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
+
+        // re-login...
+    }
+
+    ///..
+    
+
+    ///.
+    private void checkErrorDto(ErrorDto errorDto, String expectedPath, ErrorCode expectedErrorCode, String... expectedArgs) {
+
+        Assertions.assertNotNull(errorDto);
         Assertions.assertEquals(expectedPath, errorDto.getUrl());
 
-        if(expectedErrorCode != null) Assertions.assertEquals(expectedErrorCode, errorDto.getErrorCode());
-        else Assertions.assertTrue(errorDto.getErrorCode() != null);
+        if(expectedErrorCode != null) {
+
+            Assertions.assertEquals(expectedErrorCode, errorDto.getErrorCode());
+        }
+
+        else {
+
+            Assertions.assertNotNull(errorDto.getErrorCode());
+        }
 
         if(expectedArgs != null) {
 
             List<String> arguments = errorDto.getMessageArguments();
 
-            Assertions.assertTrue(arguments != null);
+            Assertions.assertNotNull(arguments);
             Assertions.assertEquals(expectedArgs.length, arguments.size());
 
             for(int i = 0; i < expectedArgs.length; i++) {
@@ -156,25 +321,25 @@ public class AuthServiceApplicationTests {
     }
 
     ///..
-    public void checkErrorDto(ErrorDto errorDto, String path) throws Exception {
+    private void checkErrorDto(ErrorDto errorDto, String path) {
 
-        checkErrorDto(errorDto, path, null, (String[])null);
+        this.checkErrorDto(errorDto, path, null, (String[])null);
     }
 
     ///..
-    public AuthDto checkAuthDto(AuthDto authDto, String expectedUsername) throws Exception {
+    private AuthDto checkAuthDto(AuthDto authDto, String expectedUsername) {
 
-        Assertions.assertTrue(authDto != null);
-        Assertions.assertTrue(authDto.getSessionId() != null);
-        Assertions.assertTrue(authDto.getSessionId().equals("") == false);
-        Assertions.assertTrue(authDto.getUserDetails() != null);
+        Assertions.assertNotNull(authDto);
+        Assertions.assertNotNull(authDto.getSessionId());
+        Assertions.assertEquals(false, authDto.getSessionId().equals(""));
+        Assertions.assertNotNull(authDto.getUserDetails());
         Assertions.assertEquals(expectedUsername, authDto.getUserDetails().getUsername());
 
         return(authDto);
     }
-
+    
     ///
-    @Nested
+    /* @Nested
     @Order(1)
 	@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @TestInstance(value = TestInstance.Lifecycle.PER_CLASS)
@@ -506,7 +671,7 @@ public class AuthServiceApplicationTests {
         // get logs
         // get logs invalid dto
         // delete logs
-    }
+    } */
 
     ///
 }

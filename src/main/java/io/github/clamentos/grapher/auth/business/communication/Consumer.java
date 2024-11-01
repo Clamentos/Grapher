@@ -9,26 +9,29 @@ import io.github.clamentos.grapher.auth.business.services.SessionService;
 import io.github.clamentos.grapher.auth.business.services.ValidatorService;
 
 ///..
-import io.github.clamentos.grapher.auth.error.ErrorCode;
+import io.github.clamentos.grapher.auth.error.ErrorDecoder;
 
 ///..
 import io.github.clamentos.grapher.auth.error.exceptions.AuthenticationException;
 import io.github.clamentos.grapher.auth.error.exceptions.AuthorizationException;
 
 ///..
-import io.github.clamentos.grapher.auth.persistence.UserRole;
-
-///..
 import io.github.clamentos.grapher.auth.persistence.entities.Session;
 
 ///.
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 ///.
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 
 ///..
+import org.springframework.amqp.support.AmqpHeaders;
+
+///..
 import org.springframework.beans.factory.annotation.Autowired;
+
+///..
+import org.springframework.messaging.handler.annotation.Header;
 
 ///..
 import org.springframework.stereotype.Component;
@@ -36,11 +39,12 @@ import org.springframework.stereotype.Component;
 ///
 /**
  * <h3>Consumer</h3>
- * Spring {@link Component} dedicated to handle AMQP auth requests from the other microservices.
+ * Spring {@link Component} dedicated to handle auth request events from the other microservices via the message broker.
 */
 
 ///
 @Component
+@Slf4j
 
 ///
 public class Consumer {
@@ -61,84 +65,82 @@ public class Consumer {
     }
 
     ///
-    /**
-     * Handles auth requests from the {@code Graph} microservice.
-     * @param authRequest : The request to handle.
-     * @apiNote This method will subsequently call the {@link Consumer} in order to send the response.
-    */
-    @RabbitListener(queues = "GraphMsToAuthMsQueue")
-    public void processFromGraphMs(AuthRequest authRequest) {
+    /** Internal use only. {@link RabbitListener} on {@code MessageMsToAuthMsQueue} and {@code GraphMsToAuthMsQueue} queues. */
+    @RabbitListener(queues = {"MessageMsToAuthMsQueue", "GraphMsToAuthMsQueue"})
+    protected void consume(AuthRequest authRequest, @Header(AmqpHeaders.CONSUMER_QUEUE) String queue) {
 
-        this.processAndRespond(authRequest, "AuthMsToGraphMsQueue");
-    }
+        switch(queue) {
 
-    ///..
-    /**
-     * Handles auth requests from the {@code Message} microservice.
-     * @param authRequest : The request to handle.
-     * @apiNote This method will subsequently call the {@link Consumer} in order to send the response.
-    */
-    @RabbitListener(queues = "MessageMsToAuthMsQueue")
-    public void processFromMessageMs(AuthRequest authRequest) {
+            case "MessageMsToAuthMsQueue": this.processAndRespond(authRequest, "AuthMsToMessageMsQueue"); break;
+            case "GraphMsToAuthMsQueue": this.processAndRespond(authRequest, "AuthMsToGraphMsQueue"); break;
 
-        this.processAndRespond(authRequest, "AuthMsToMessageMsQueue");
+            default: log.warn("Unknown queue: {}", queue);
+        }
     }
 
     ///.
     private void processAndRespond(AuthRequest authRequest, String destination) throws NullPointerException {
 
-        Session session = null;
+        try {
+
+            validatorService.validateAuthRequestEvent(authRequest);
+        }
+
+        catch(IllegalArgumentException exc) {
+
+            producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), exc, null));
+            return;
+        }
 
         try {
 
-            validatorService.requireNotNull(authRequest.getSessionId(), "sessionId");
-            validatorService.requireNotNull(authRequest.getRequiredRoles(), "requiredRoles");
-
-            session = sessionService.check(
+            Session session = sessionService.check(
 
                 authRequest.getSessionId(),
                 authRequest.getRequiredRoles(),
                 authRequest.getMinimumRequiredRole(),
-                "Check failed for source: " + destination
+                "SessionService::check failed for source: " +
+                destination + ", requestId: " + authRequest.getRequestId()
             );
+
+            producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), null, session));
         }
 
-        catch(AuthenticationException | AuthorizationException | IllegalArgumentException exc) {
+        catch(AuthenticationException | AuthorizationException exc) {
 
-            producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), exc, session));
-            return;
+            producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), exc, null));
         }
-
-        producer.respondToAuthRequest(destination, this.generateResponse(authRequest.getRequestId(), null, session));
     }
 
     ///..
-    private AuthResponse generateResponse(String requestId, Throwable exception, Session session) {
+    private AuthResponse generateResponse(long requestId, Throwable exception, Session session) {
 
-        long userId = session != null ? session.getUserId() : -1L;
-        String username = session != null ? session.getUsername() : null;
-        UserRole userRole = session != null ? session.getUserRole() : null;
+        if(exception == null) {
 
-        if(exception == null) return(new AuthResponse(requestId, null, List.of(), userId, username, userRole));
+            if(session != null) {
 
-        String[] splits = exception.getMessage().split("/");
-        ErrorCode errorCode = null;
-        List<String> errorArguments = List.of();
-
-        if(splits.length > 1) {
-
-            errorCode = ErrorCode.valueOf(splits[0]);
-
-            if(splits.length > 2) {
-
-                for(int i = 2; i < splits.length; i++) {
-
-                    errorArguments.add(splits[i]);
-                }
+                return(new AuthResponse(requestId, null, null, session.getUserId(), session.getUsername(), session.getUserRole()));
             }
+
+            return(new AuthResponse(requestId, null, null, -1L, null, null));
         }
 
-        return(new AuthResponse(requestId, errorCode, errorArguments, userId, username, userRole));
+        ErrorDecoder decoder = new ErrorDecoder(exception);
+
+        if(session != null) {
+
+            return(new AuthResponse(
+
+                requestId,
+                decoder.getErrorCode(),
+                decoder.getErrorArguments(),
+                session.getUserId(),
+                session.getUsername(),
+                session.getUserRole()
+            ));
+        }
+
+        return(new AuthResponse(requestId, decoder.getErrorCode(), decoder.getErrorArguments(), -1L, null, null));
     }
 
     ///

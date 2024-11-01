@@ -24,18 +24,19 @@ import lombok.Setter;
 */
 
 ///
+@Entity
+@Table(name = "SESSION")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
-@Table(name = "SESSION")
 
 ///
 public class Session {
 
     ///
-    @Id @Column(name = "id")
+    @Id
+    @Column(name = "id")
     private String id;
 
     @Column(name = "user_id")

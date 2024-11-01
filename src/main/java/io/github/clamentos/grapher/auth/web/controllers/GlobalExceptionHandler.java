@@ -58,39 +58,39 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
     ///
     /**
-     * Handle {@link AuthenticationException} and respond with a {@code 401}.
+     * Internal Spring {@link ExceptionHandler} for {@link AuthenticationException}. Responds with a {@code 401}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = AuthenticationException.class)
-    public ResponseEntity<ErrorDto> handleAuthenticationException(AuthenticationException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleAuthenticationException(AuthenticationException exc, WebRequest request) {
 
         return(constructError(exc, request, 401));
     }
 
     ///..
     /**
-     * Handle {@link AuthorizationException} and respond with a {@code 403}.
+     * Internal Spring {@link ExceptionHandler} for {@link AuthorizationException}. Responds with a {@code 403}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = AuthorizationException.class)
-    public ResponseEntity<ErrorDto> handleAuthorizationException(AuthorizationException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleAuthorizationException(AuthorizationException exc, WebRequest request) {
 
         return(constructError(exc, request, 403));
     }
 
     ///..
     /**
-     * Handle {@link DataAccessException} and respond with a {@code 422}.
+     * Internal Spring {@link ExceptionHandler} for {@link DataAccessException}. Responds with a {@code 422}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = DataAccessException.class)
-    public ResponseEntity<ErrorDto> handleDataAccessException(DataAccessException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleDataAccessException(DataAccessException exc, WebRequest request) {
 
         log.error("{}: {}", exc.getClass().getSimpleName(), exc.getMessage());
         return(constructError(exc, request, 422));
@@ -98,78 +98,78 @@ public final class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
     ///..
     /**
-     * Handle {@link DateTimeParseException} and respond with a {@code 400}.
+     * Internal Spring {@link ExceptionHandler} for {@link DateTimeParseException}. Responds with a {@code 400}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = DateTimeParseException.class)
-    public ResponseEntity<ErrorDto> handleDateTimeParseException(DateTimeParseException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleDateTimeParseException(DateTimeParseException exc, WebRequest request) {
 
         return(constructError(exc, request, 400));
     }
 
     ///..
     /**
-     * Handle {@link EntityNotFoundException} and respond with a {@code 404}.
+     * Internal Spring {@link ExceptionHandler} for {@link EntityNotFoundException}. Responds with a {@code 404}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = EntityNotFoundException.class)
-    public ResponseEntity<ErrorDto> handleEntityNotFoundException(EntityNotFoundException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleEntityNotFoundException(EntityNotFoundException exc, WebRequest request) {
 
         return(constructError(exc, request, 404));
     }
 
     ///..
     /**
-     * Handle {@link EntityExistsException} and respond with a {@code 409}.
+     * Internal Spring {@link ExceptionHandler} for {@link EntityExistsException}. Responds with a {@code 409}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = EntityExistsException.class)
-    public ResponseEntity<ErrorDto> handleEntityExistsException(EntityExistsException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleEntityExistsException(EntityExistsException exc, WebRequest request) {
 
         return(constructError(exc, request, 409));
     }
 
     ///..
     /**
-     * Handle {@link IllegalArgumentException} and respond with a {@code 400}.
+     * Internal Spring {@link ExceptionHandler} for {@link IllegalArgumentException}. Responds with a {@code 400}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = IllegalArgumentException.class)
-    public ResponseEntity<ErrorDto> handleIllegalArgumentException(IllegalArgumentException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleIllegalArgumentException(IllegalArgumentException exc, WebRequest request) {
 
         return(constructError(exc, request, 400));
     }
 
     ///..
     /**
-     * Handle {@link NotificationException} and respond with a {@code 422}.
+     * Internal Spring {@link ExceptionHandler} for {@link NotificationException}. Responds with a {@code 422}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = NotificationException.class)
-    public ResponseEntity<ErrorDto> handleNotificationException(NotificationException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleNotificationException(NotificationException exc, WebRequest request) {
 
         return(constructError(exc, request, 422));
     }
 
     ///..
     /**
-     * Handle {@link ServiceUnavailableException} and respond with a {@code 503}.
+     * Internal Spring {@link ExceptionHandler} for {@link ServiceUnavailableException}. Responds with a {@code 503}.
      * @param exc : The target exception to handle.
      * @param request : The associated web request.
      * @return The never {@code null} HTTP response with the error details.
     */
     @ExceptionHandler(value = ServiceUnavailableException.class)
-    public ResponseEntity<ErrorDto> handleUnavailableException(ServiceUnavailableException exc, WebRequest request) {
+    protected ResponseEntity<ErrorDto> handleUnavailableException(ServiceUnavailableException exc, WebRequest request) {
 
         return(constructError(exc, request, 503));
     }

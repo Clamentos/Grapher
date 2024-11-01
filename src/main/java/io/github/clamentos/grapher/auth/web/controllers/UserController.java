@@ -34,6 +34,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 
 ///..
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 ///..
@@ -106,7 +108,17 @@ public final class UserController {
     public ResponseEntity<AuthDto> login(@RequestBody UsernamePasswordDto credentials)
     throws AuthenticationException, AuthorizationException, DataAccessException, IllegalArgumentException {
 
-        return(ResponseEntity.ok(userService.login(credentials)));
+        AuthDto authDto = userService.login(credentials);
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.add(
+
+            "Set-Cookie",
+            "sessionIdCookie=" + authDto.getSessionId() + "; Max-Age=" + (authDto.getSessionExpiresAt() / 1000) +
+            "; Path=/grapher/v1; Secure; HttpOnly"
+        ); // add domain
+
+        return(new ResponseEntity<>(authDto, headers, HttpStatus.OK));
     }
 
     ///..
@@ -167,12 +179,8 @@ public final class UserController {
      * @throws EntityNotFoundException If {@code id} doesn't match to any user.
     */
     @GetMapping(value = "/{id}", produces = "application/json")
-    public ResponseEntity<UserDto> getUserById(
-
-        @RequestAttribute(name = "session") Session session,
-        @PathVariable(name = "id") long id
-
-    ) throws DataAccessException, EntityNotFoundException {
+    public ResponseEntity<UserDto> getUserById(@RequestAttribute(name = "session") Session session, @PathVariable(name = "id") long id)
+    throws DataAccessException, EntityNotFoundException {
 
         return(ResponseEntity.ok(userService.getUserById(session, id)));
     }
@@ -224,7 +232,7 @@ public final class UserController {
      * @throws IllegalArgumentException If {@code usernameEmail} doesn't pass validation.
      * @throws NotificationException If the notification cannot be sent to the message broker.
     */
-    @GetMapping(path = "/forgot-password")
+    @GetMapping(path = "/forgot-password", consumes = "application/json")
     public ResponseEntity<Void> startForgotPassword(@RequestBody UsernameEmailDto usernameEmail)
     throws AuthorizationException, IllegalArgumentException, NotificationException {
 
@@ -241,7 +249,7 @@ public final class UserController {
      * @throws EntityNotFoundException If the target user is not found.
      * @throws IllegalArgumentException If {@code forgotPassword} doesn't pass validation.
     */
-    @PostMapping(path = "/forgot-password")
+    @PostMapping(path = "/forgot-password", consumes = "application/json")
     public ResponseEntity<Void> endForgotPassword(@RequestBody ForgotPasswordDto forgotPassword)
     throws AuthorizationException, DataAccessException, EntityNotFoundException, IllegalArgumentException {
 

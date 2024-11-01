@@ -38,6 +38,22 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
 
     ///
     /**
+     * @return The never {@code null} total count by action.
+     * Each element in the list is a record, which is composed of action and count.
+    */
+    @Query(value = "SELECT a.action, COUNT(1) FROM Audit AS a GROUP BY a.action")
+    List<Object[]> countGroupByAction();
+
+    ///..
+    /**
+     * @return The never {@code null} total count by table name.
+     * Each element in the list is a record, which is composed of table name and count.
+    */
+    @Query(value = "SELECT a.tableName, COUNT(1) FROM Audit AS a GROUP BY a.tableName")
+    List<Object[]> countGroupByTableName();
+
+    ///..
+    /**
      * Finds all the audits that match the given record id.
      * @param recordId : The record id.
      * @return The never {@code null} list of audits.

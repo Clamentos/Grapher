@@ -1,6 +1,10 @@
 package io.github.clamentos.grapher.auth.web.dtos;
 
 ///
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+///.
 import io.github.clamentos.grapher.auth.error.ErrorCode;
 
 ///.
@@ -17,6 +21,7 @@ import lombok.Getter;
 */
 
 ///
+@JsonInclude(value = Include.NON_NULL)
 @AllArgsConstructor
 @Getter
 

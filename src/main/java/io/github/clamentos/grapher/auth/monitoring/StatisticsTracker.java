@@ -42,6 +42,9 @@ import org.springframework.stereotype.Service;
 public class StatisticsTracker {
 
     ///
+    private static final int NUM_BUCKETS = 20;
+    
+    ///..
     private final SessionService sessionService;
 
     ///..
@@ -80,6 +83,7 @@ public class StatisticsTracker {
      * @param time : The execution time of the request in milliseconds.
      * @param uri : The request URI.
     */
+    @SuppressWarnings(value = "unused")
     public void incrementResponse(int status, int time, String uri) {
 
         responseStatusCounters.computeIfAbsent(status, key -> new AtomicLong()).incrementAndGet();
@@ -92,6 +96,7 @@ public class StatisticsTracker {
      * @param destination : The destination.
      * @throws NullPointerException If {@code destination} is {@code null}.
     */
+    @SuppressWarnings(value = "unused")
     public void incrementBrokerRequestCount(String destination) throws NullPointerException {
 
         brokerRequestCounters.computeIfAbsent(destination, key -> new AtomicLong()).incrementAndGet();
@@ -103,6 +108,7 @@ public class StatisticsTracker {
      * @param destination : The destination.
      * @throws NullPointerException If {@code destination} is {@code null}.
     */
+    @SuppressWarnings(value = "unused")
     public void incrementBrokerResponseCount(String destination) throws NullPointerException {
 
         brokerResponseCounters.computeIfAbsent(destination, key -> new AtomicLong()).incrementAndGet();
@@ -196,10 +202,10 @@ public class StatisticsTracker {
 
         // int[] always has 1 element, used as an "indirect" value.
         Map<Range<Integer>, int[]> buckets = new LinkedHashMap<>();
-        int bucketSize = Math.ceilDiv(max, 20);
+        int bucketSize = Math.ceilDiv(max, NUM_BUCKETS);
         int start = 0;
 
-        for(int i = 0; i < 20; i++) {
+        for(int i = 0; i < NUM_BUCKETS; i++) {
 
             buckets.put(Range.rightOpen(start, start + bucketSize), new int[]{0});
             start += bucketSize;

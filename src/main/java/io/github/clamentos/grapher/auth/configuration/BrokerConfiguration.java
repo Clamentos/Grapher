@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Configuration;
 public class BrokerConfiguration {
 
     ///
+    /** Configures the Spring's AMQP message converter to use Jackson's JSON converter. */
     @Bean
     public MessageConverter messageConverterBean() {
 

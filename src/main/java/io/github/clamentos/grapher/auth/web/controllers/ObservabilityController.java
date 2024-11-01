@@ -12,11 +12,20 @@ import io.github.clamentos.grapher.auth.web.dtos.AuditSearchFilterDto;
 import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilterDto;
 
 ///.
+import java.time.LocalDateTime;
+
+///..
+import java.time.format.DateTimeParseException;
+
+///..
 import java.util.List;
 import java.util.Map;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
+
+///..
+import org.springframework.boot.availability.ReadinessState;
 
 ///..
 import org.springframework.dao.DataAccessException;
@@ -80,6 +89,23 @@ public final class ObservabilityController {
 
     ///..
     /**
+     * Counts the total number of audits.
+     * @param byTableName : If {@code true} group by table name, else group by action.
+     * @return The never {@code null} aggregated audit count.
+     * @throws DataAccessException If any database access error occurs.
+    */
+    @GetMapping(path = "/audits/count", produces = "application/json")
+    public ResponseEntity<Map<String, Long>> countAllAudits(
+
+        @RequestParam(name = "byTableName", required = false, defaultValue = "false") boolean byTableName
+
+    ) throws DataAccessException {
+
+        return(ResponseEntity.ok(observabilityService.countAllAudits(byTableName)));
+    }
+
+    ///..
+    /**
      * Gets all the audits that match the provided search filter.
      * @param searchFilter : The search filer.
      * @return The never {@code null} list of audits.
@@ -99,7 +125,7 @@ public final class ObservabilityController {
      * @throws DataAccessException If any database access error occurs.
     */
     @GetMapping(path = "/logs/count", produces = "text/plain")
-    public ResponseEntity<Long> countAllLogs() throws DataAccessException {
+    public ResponseEntity<Map<String, Long>> countAllLogs() throws DataAccessException {
 
         return(ResponseEntity.ok(observabilityService.countAllLogs()));
     }
@@ -120,11 +146,17 @@ public final class ObservabilityController {
     }
 
     ///..
-    
-    @PatchMapping(path = "/ready", consumes = "text/plain")
-    public ResponseEntity<Void> setServiceNotAvailableForDuration(@RequestBody String duration) {
+    /**
+     * Sets the readiness state of this application to {@link ReadinessState#REFUSING_TRAFFIC} from now to the specified end timestamp.
+     * @param endTimestamp : The downtime end timestamp.
+     * @throws NullPointerException If {@code endTimestamp} is {@code null}.
+     * @throws DateTimeParseException If {@code endTimestamp} cannot be parsed.
+    */
+    @PatchMapping(path = "/ready")
+    public ResponseEntity<Void> setServiceNotAvailableForDuration(@RequestParam(name = "endTimestamp") String endTimestamp)
+    throws DateTimeParseException {
 
-        observabilityService.notReadyFor(duration);
+        observabilityService.notReadyFor(LocalDateTime.parse(endTimestamp));
         return(ResponseEntity.ok().build());
     }
 
@@ -136,12 +168,8 @@ public final class ObservabilityController {
      * @throws DataAccessException If any database access error occurs.
     */
     @DeleteMapping(path = "/audits")
-    public ResponseEntity<Void> deleteAllAuditsByPeriod(
-
-        @RequestParam(name = "start") long start,
-        @RequestParam(name = "end") long end
-
-    ) throws DataAccessException {
+    public ResponseEntity<Void> deleteAllAuditsByPeriod(@RequestParam(name = "start") long start, @RequestParam(name = "end") long end)
+    throws DataAccessException {
 
         observabilityService.deleteAllAuditsByPeriod(start, end);
         return(ResponseEntity.ok().build());
@@ -155,12 +183,8 @@ public final class ObservabilityController {
      * @throws DataAccessException If any database access error occurs.
     */
     @DeleteMapping(path = "/logs")
-    public ResponseEntity<Void> deleteAllLogsByPeriod(
-
-        @RequestParam(name = "start") long start,
-        @RequestParam(name = "end") long end
-
-    ) throws DataAccessException {
+    public ResponseEntity<Void> deleteAllLogsByPeriod(@RequestParam(name = "start") long start, @RequestParam(name = "end") long end)
+    throws DataAccessException {
 
         observabilityService.deleteAllLogsByPeriod(start, end);
         return(ResponseEntity.ok().build());

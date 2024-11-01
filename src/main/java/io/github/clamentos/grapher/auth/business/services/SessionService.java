@@ -82,6 +82,8 @@ public class SessionService {
 
     ///
     private final SessionRepository sessionRepository;
+
+    ///..
     private final Producer producer;
 
     ///..
@@ -93,6 +95,8 @@ public class SessionService {
 
     ///..
     private final SecureRandom secureRandom;
+
+    ///..
     private final Map<String, Session> sessions;
     private final Map<Long, AtomicInteger> userSessionCounters;
     private final AtomicInteger totalLoggedUsersCounter;
@@ -101,7 +105,7 @@ public class SessionService {
 
     ///
     /** This class is a Spring bean and this constructor should never be called explicitly. */
-    @Autowired
+    @Autowired @SuppressWarnings(value = "unused")
     public SessionService(SessionRepository sessionRepository, Producer producer, Environment environment) {
 
         this.sessionRepository = sessionRepository;
@@ -124,6 +128,11 @@ public class SessionService {
 
             sessions.put(session.getId(), session);
             userSessionCounters.computeIfAbsent(session.getUserId(), key -> new AtomicInteger()).incrementAndGet();
+
+            if((session.getExpiresAt() - sessionExpirationMargin) >= System.currentTimeMillis()) {
+
+                totalLoggedUsersCounter.incrementAndGet();
+            }
         }
 
         if(sessions.size() > 0) log.info("Recovered {} sessions", sessions.size());
@@ -160,7 +169,8 @@ public class SessionService {
             ));
         }
 
-        int userSessionsCount = userSessionCounters.computeIfAbsent(userId, k -> new AtomicInteger()).getAndUpdate(current -> {
+        @SuppressWarnings("unused")
+        int userSessionsCount = userSessionCounters.computeIfAbsent(userId, key -> new AtomicInteger()).getAndUpdate(current -> {
 
             int attempt = current + 1;
             if(attempt <= maxSessionsPerUser) return(attempt);
@@ -174,8 +184,8 @@ public class SessionService {
 
                 ErrorCode.TOO_MANY_SESSIONS, 
                 "SessionService::generate -> Could not create session, user has too many",
-                username,
-                maxSessionsPerUser
+                maxSessionsPerUser,
+                username
             ));
         }
 
@@ -221,44 +231,25 @@ public class SessionService {
         secureRandom.nextBytes(rawSessionId);
         String forgotPasswordSessionId = Base64.getEncoder().encodeToString(rawSessionId);
 
-        ForgotPasswordEvent event = new ForgotPasswordEvent(
+        try {
 
-            forgotPasswordSessionId, username, email, (now + forgotPasswordDuration)
-        );
+            producer.sendForgotPasswordEvent(new ForgotPasswordEvent(
 
-        boolean sent = false;
-
-        for(int i = 0; i < 2 && !sent; i++) {
-
-            try {
-
-                producer.sendForgotPasswordEvent(event);
-                sent = true;
-            }
-
-            catch(AmqpException exc) {
-
-                log.error("Could not send to MessageMS because of: {}, {}, retrying", exc.getClass().getSimpleName(), exc.getMessage());
-                sent = false;
-            }
-
-            try {
-
-                Thread.sleep(2500);
-            }
-
-            catch(InterruptedException exc) {
-
-                Thread.currentThread().interrupt();
-                break;
-            }
+                forgotPasswordSessionId,
+                (now + forgotPasswordDuration),
+                username,
+                email
+            ));
         }
 
-        if(!sent) {
+        catch(AmqpException exc) {
+
+            log.error("Could not send to MessageMS because of: {}, {}, retrying", exc.getClass().getSimpleName(), exc.getMessage());
 
             throw new NotificationException(ErrorFactory.create(
 
-                ErrorCode.COMPLETION_FAILURE, "SessionService::generateForgotPassword -> Could not send to MessagingMS"
+                ErrorCode.COMPLETION_FAILURE,
+                "SessionService::generateForgotPassword -> Could not send to MessageMS"
             ));
         }
 
@@ -289,7 +280,8 @@ public class SessionService {
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.SESSION_NOT_FOUND, "SessionService::check -> Session not found"
+                ErrorCode.SESSION_NOT_FOUND,
+                "SessionService::check -> Session not found"
             ));
         }
 
@@ -297,7 +289,10 @@ public class SessionService {
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.EXPIRED_SESSION, "SessionService::check -> Session expired", session.getExpiresAt(), sessionExpirationMargin
+                ErrorCode.EXPIRED_SESSION,
+                "SessionService::check -> Session expired",
+                session.getExpiresAt(),
+                sessionExpirationMargin
             ));
         }
 
@@ -308,7 +303,10 @@ public class SessionService {
 
             throw new AuthorizationException(ErrorFactory.create(
 
-                ErrorCode.NOT_ENOUGH_PRIVILEGES, "SessionService::check -> " + message, minimumRequiredRole, roles
+                ErrorCode.NOT_ENOUGH_PRIVILEGES,
+                "SessionService::check -> " + message,
+                minimumRequiredRole,
+                roles
             ));
         }
 
@@ -331,7 +329,8 @@ public class SessionService {
 
             throw new AuthorizationException(ErrorFactory.create(
 
-                ErrorCode.FORGOT_PASSWORD_NOT_FOUND, "SessionService::confirmForgotPassword -> Forgot password session not found"
+                ErrorCode.FORGOT_PASSWORD_NOT_FOUND,
+                "SessionService::confirmForgotPassword -> Forgot password session not found"
             ));
         }
 
@@ -339,7 +338,8 @@ public class SessionService {
 
             throw new AuthorizationException(ErrorFactory.create(
 
-                ErrorCode.FORGOT_PASSWORD_EXPIRED, "SessionService::confirmForgotPassword -> Forgot password session expired"
+                ErrorCode.FORGOT_PASSWORD_EXPIRED,
+                "SessionService::confirmForgotPassword -> Forgot password session expired"
             ));
         }
 
@@ -442,7 +442,8 @@ public class SessionService {
     }
 
     ///.
-    @Scheduled(fixedRate = 300_000)
+    /** Internal use only. {@link Scheduled} task every 5 minutes. */
+    @Scheduled(cron = "0 */5 * * * *")
     protected void removeAllExpired() {
 
         log.info("Starting expired session cleaning task...");
@@ -480,7 +481,8 @@ public class SessionService {
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.SESSION_NOT_FOUND, "SessionService::remove -> Session not found"
+                ErrorCode.SESSION_NOT_FOUND,
+                "SessionService::removeInternal -> Session not found"
             ));
         }
 

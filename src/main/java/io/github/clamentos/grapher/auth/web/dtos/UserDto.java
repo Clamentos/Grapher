@@ -23,11 +23,11 @@ import lombok.Setter;
 */
 
 ///
+@JsonInclude(value = Include.NON_NULL)
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@JsonInclude(Include.NON_NULL)
 
 ///
 public final class UserDto {
@@ -39,6 +39,7 @@ public final class UserDto {
     private String email;
     private String profilePicture;
     private String about;
+    private String preferences;
     private UserRole role;
     private Short failedAccesses;
     private Long lockedUntil;

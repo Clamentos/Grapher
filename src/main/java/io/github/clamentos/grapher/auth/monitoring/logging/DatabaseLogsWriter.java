@@ -85,7 +85,8 @@ public class DatabaseLogsWriter {
     }
 
     ///
-    @Scheduled(fixedRate = 120_000)
+    /** Internal use only. {@link Scheduled} task every 2 minutes. */
+    @Scheduled(cron = "0 */2 * * * *")
     protected void dump() {
 
         log.info("Starting logs dumping task...");
@@ -93,7 +94,7 @@ public class DatabaseLogsWriter {
         try {
 
             // Wait for logback to spawn a new file if the previous log triggered a rollover.
-            Thread.sleep(1500);
+            Thread.sleep(1500L);
         }
 
         catch(InterruptedException exc) {
@@ -102,7 +103,7 @@ public class DatabaseLogsWriter {
             log.warn("Interrupted, ignoring...");
         }
 
-        int[] totalLogsWritten = new int[]{0}; // Used as an "indirect" integer, otherwise lambda complains, without using AtomicInteger.
+        int[] totalLogsWritten = new int[]{0}; // Used as an "indirect" integer, otherwise lambda complains.
         int totalFilesCleaned = 0;
 
         try {

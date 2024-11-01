@@ -45,6 +45,7 @@ public enum ErrorCode {
     VALIDATOR_BAD_EMAIL,
     VALIDATOR_BAD_USERNAME,
     VALIDATOR_IMAGE_TOO_LARGE,
+    VALIDATOR_REQUIRE_DIFFERENT,
 
     USER_NOT_FOUND,
     USER_ALREADY_EXISTS,
@@ -61,7 +62,10 @@ public enum ErrorCode {
 
     ///
     /** @return The never {@code null} default error code. */
-    public static ErrorCode getDefault() { return(ErrorCode.UNCATEGORIZED); }
+    public static ErrorCode getDefault() {
+
+        return(ErrorCode.UNCATEGORIZED);
+    }
 
     ///
 }

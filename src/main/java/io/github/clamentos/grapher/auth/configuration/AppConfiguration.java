@@ -90,6 +90,7 @@ public class AppConfiguration implements WebMvcConfigurer {
         authorizationMappings = new ConcurrentHashMap<>();
 
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/status", admin);
+        authorizationMappings.put("GET/grapher/v1/auth-service/observability/audits/count", admin);
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/audits", admin);
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/logs/count", admin);
         authorizationMappings.put("GET/grapher/v1/auth-service/observability/logs", admin);

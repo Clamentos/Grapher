@@ -18,13 +18,12 @@ import io.github.clamentos.grapher.auth.web.dtos.LogSearchFilterDto;
 
 ///.
 import java.time.Duration;
-
-///..
-import java.time.format.DateTimeParseException;
+import java.time.LocalDateTime;
 
 ///..
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 ///.
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +75,8 @@ public class ObservabilityService {
     ///
     private final AuditRepository auditRepository;
     private final LogRepository logRepository;
+
+    ///..
     private final ValidatorService validatorService;
     private final StatisticsTracker statisticsTracker;
 
@@ -115,6 +116,23 @@ public class ObservabilityService {
 
     ///..
     /**
+     * Counts the total number of audits.
+     * @param byTableName : If {@code true} group by table name, else group by action.
+     * @return The never {@code null} aggregated audit count.
+     * @throws DataAccessException If any database access error occurs.
+    */
+    public Map<String, Long> countAllAudits(boolean byTableName) throws DataAccessException {
+
+        if(byTableName) {
+
+            return(auditRepository.countGroupByTableName().stream().collect(Collectors.toMap(e -> (String)e[0], e -> (Long)e[1])));
+        }
+
+        return(auditRepository.countGroupByAction().stream().collect(Collectors.toMap(e -> (String)e[0], e -> (Long)e[1])));
+    }
+
+    ///..
+    /**
      * Gets all the audits that match the provided search filter.
      * @param searchFilter : The search filer.
      * @return The never {@code null} list of audits.
@@ -133,18 +151,23 @@ public class ObservabilityService {
             searchFilter.getCreatedAtStart(),
             searchFilter.getCreatedAtEnd(),
             searchFilter.getCreatedByNames(),
-            PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize())
+
+            PageRequest.of(
+
+                searchFilter.getPageNumber(),
+                searchFilter.getPageSize()
+            )
         ));
     }
 
     ///..
     /**
-     * @return The total number of logs.
+     * @return The total number of logs grouped by level.
      * @throws DataAccessException If any database access error occurs.
     */
-    public long countAllLogs() throws DataAccessException {
+    public Map<String, Long> countAllLogs() throws DataAccessException {
 
-        return(logRepository.count());
+        return(logRepository.countGroupByLevels().stream().collect(Collectors.toMap(e -> (String)e[0], e -> (Long)e[1])));
     }
 
     ///..
@@ -168,25 +191,30 @@ public class ObservabilityService {
             searchFilter.getMessageLike(),
             searchFilter.getCreatedAtStart(),
             searchFilter.getCreatedAtEnd(),
-            PageRequest.of(searchFilter.getPageNumber(), searchFilter.getPageSize())
+
+            PageRequest.of(
+
+                searchFilter.getPageNumber(),
+                searchFilter.getPageSize()
+            )
         ));
     }
 
     ///..
     /**
-     * Sets the readiness state of this application to {@link ReadinessState#REFUSING_TRAFFIC} for the specified duration.
-     * @param duration : The downtime duration, such as {@code PnDTnHnMn.nS}, formatted according to the {@code ISO-8601} format.
-     * @throws NullPointerException If {@code duration} is {@code null}.
-     * @throws DateTimeParseException If {@code duration} cannot be parsed.
+     * Sets the readiness state of this application to {@link ReadinessState#REFUSING_TRAFFIC} from now to the specified end timestamp.
+     * @param endTimestamp : The downtime end timestamp.
+     * @throws NullPointerException If {@code endTimestamp} is {@code null}.
+     * @apiNote This method is marked as {@link Async}.
     */
     @Async
-    public void notReadyFor(String duration) throws DateTimeParseException, NullPointerException {
+    public void notReadyFor(LocalDateTime endTimestamp) throws NullPointerException {
 
         if(readiness.getIsReady().compareAndSet(true, false)) {
 
-            log.info("Refusing traffic for {}", duration);
+            Duration downDuration = Duration.between(LocalDateTime.now(), endTimestamp);
 
-            Duration downDuration = Duration.parse(duration);
+            log.info("Refusing traffic from now to {}", endTimestamp);
             readiness.setDownDuration(downDuration);
 
             AvailabilityChangeEvent.publish(applicationContext, ReadinessState.REFUSING_TRAFFIC);
@@ -237,6 +265,7 @@ public class ObservabilityService {
     }
 
     ///.
+    /** Internal use only. */
     @EventListener
     protected void handleRequestHandledEvent(ServletRequestHandledEvent event) {
 

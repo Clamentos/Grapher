@@ -22,18 +22,19 @@ import lombok.Setter;
 */
 
 ///
+@Entity
+@Table(name = "LOG")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
-@Table(name = "LOG")
 
 ///
 public class Log {
 
     ///
-    @Id @Column(name = "id")
+    @Id
+    @Column(name = "id")
     @GeneratedValue(generator = "log_id_seq", strategy = GenerationType.SEQUENCE)
     @SequenceGenerator(name = "log_id_seq", sequenceName = "log_id_seq", allocationSize = 1)
     private long id;

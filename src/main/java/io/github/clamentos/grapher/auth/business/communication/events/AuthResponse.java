@@ -1,7 +1,8 @@
 package io.github.clamentos.grapher.auth.business.communication.events;
 
 ///
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 ///.
 import io.github.clamentos.grapher.auth.error.ErrorCode;
@@ -23,6 +24,7 @@ import lombok.Getter;
 */
 
 ///
+@JsonInclude(value = Include.NON_NULL)
 @AllArgsConstructor
 @Getter
 
@@ -30,11 +32,7 @@ import lombok.Getter;
 public final class AuthResponse {
 
     ///
-    @JsonIgnore
-    public static final String TYPE = "AuthResponse";
-
-    ///.
-    private final String requestId;
+    private final long requestId;
 
     ///..
     private final ErrorCode errorCode;

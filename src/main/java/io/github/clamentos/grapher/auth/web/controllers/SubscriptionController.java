@@ -16,7 +16,7 @@ import io.github.clamentos.grapher.auth.web.dtos.SubscriptionDto;
 import jakarta.persistence.EntityNotFoundException;
 
 ///.
-import java.util.List;
+import java.util.Set;
 
 ///.
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,12 +71,8 @@ public class SubscriptionController {
      * @throws IllegalArgumentException If {@code subscription} doesn't pass validation.
     */
     @PostMapping(consumes = "application/json")
-    public ResponseEntity<Void> subscribe(
-
-        @RequestAttribute(name = "session") Session session,
-        @RequestBody SubscriptionDto subscription
-    
-    ) throws DataAccessException, EntityNotFoundException, IllegalActionException, IllegalArgumentException {
+    public ResponseEntity<Void> subscribe(@RequestAttribute(name = "session") Session session, @RequestBody SubscriptionDto subscription)
+    throws DataAccessException, EntityNotFoundException, IllegalActionException, IllegalArgumentException {
 
         subscriptionService.subscribe(session, subscription);
         return(ResponseEntity.ok().build());
@@ -95,7 +91,7 @@ public class SubscriptionController {
     public ResponseEntity<Void> toggleNotifications(
 
         @RequestAttribute(name = "session") Session session,
-        @RequestBody List<SubscriptionDto> subscriptions
+        @RequestBody Set<SubscriptionDto> subscriptions
     
     ) throws DataAccessException, EntityNotFoundException, IllegalArgumentException {
 
@@ -112,7 +108,7 @@ public class SubscriptionController {
      * @throws IllegalArgumentException If {@code subscriptionIds} doesn't pass validation.
     */
     @DeleteMapping(consumes = "application/json")
-    public ResponseEntity<Void> unsubscribe(@RequestAttribute(name = "session") Session session, @RequestBody List<Long> subscriptionIds)
+    public ResponseEntity<Void> unsubscribe(@RequestAttribute(name = "session") Session session, @RequestBody Set<Long> subscriptionIds)
     throws DataAccessException, IllegalArgumentException {
 
         subscriptionService.unsubscribe(session, subscriptionIds);

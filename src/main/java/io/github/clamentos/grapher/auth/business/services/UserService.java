@@ -87,6 +87,8 @@ public class UserService {
     ///
     private final UserRepository userRepository;
     private final AuditRepository auditRepository;
+
+    ///..
     private final SessionService sessionService;
     private final ValidatorService validatorService;
 
@@ -133,13 +135,19 @@ public class UserService {
     throws DataAccessException, EntityExistsException, IllegalArgumentException {
 
         validatorService.validateAndSanitize(userDetails, false);
-        if(session != null) sessionService.check(session.getId(), Action.CREATE_OTHERS.getAllowedRoles(), null, "Cannot create others");
+
+        if(session != null) {
+
+            sessionService.check(session.getId(), Action.CREATE_OTHERS.getAllowedRoles(), null, "Cannot create others");
+        }
 
         if(userRepository.existsByUsername(userDetails.getUsername())) {
 
             throw new EntityExistsException(ErrorFactory.create(
 
-                ErrorCode.USER_ALREADY_EXISTS, "UserService::register -> User already exists", userDetails.getUsername()
+                ErrorCode.USER_ALREADY_EXISTS,
+                "UserService::register -> User already exists",
+                userDetails.getUsername()
             ));
         }
 
@@ -150,6 +158,7 @@ public class UserService {
             userDetails.getEmail(),
             userDetails.getProfilePicture() != null ? Base64.getDecoder().decode(userDetails.getProfilePicture()) : null,
             userDetails.getAbout(),
+            userDetails.getPreferences(),
             session != null ? session.getUsername() : userDetails.getUsername()
         ));
 
@@ -177,7 +186,9 @@ public class UserService {
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::login -> User not found", credentials.getUsername()
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::login -> User not found",
+                credentials.getUsername()
             ));
         }
 
@@ -187,7 +198,10 @@ public class UserService {
 
             throw new AuthorizationException(ErrorFactory.create(
 
-                ErrorCode.USER_LOCKED, "UserService::login -> User is locked", user.getLockedUntil(), user.getLockReason()
+                ErrorCode.USER_LOCKED,
+                "UserService::login -> User is locked",
+                user.getLockedUntil(),
+                user.getLockReason()
             ));
         }
 
@@ -195,7 +209,9 @@ public class UserService {
 
             throw new AuthorizationException(ErrorFactory.create(
 
-                ErrorCode.USER_PASSWORD_EXPIRED, "UserService::login -> User password expired", user.getPasswordLastChangedAt()
+                ErrorCode.USER_PASSWORD_EXPIRED,
+                "UserService::login -> User password expired",
+                user.getPasswordLastChangedAt()
             ));
         }
 
@@ -223,7 +239,6 @@ public class UserService {
             user.setFailedAccesses((short)(user.getFailedAccesses() + 1));
             userRepository.save(user);
 
-            log.info("User {} failed to login", user.getId());
             throw new WrongPasswordException(ErrorFactory.create(ErrorCode.WRONG_PASSWORD, "UserService::login -> Wrong password"));
         }
     }
@@ -356,7 +371,9 @@ public class UserService {
 
             throw new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::getUserById -> User not found", id
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::getUserById -> User not found",
+                id
             ));
         }
 
@@ -386,7 +403,9 @@ public class UserService {
 
             new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::updateUser -> User not found", userDetails.getId()
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::updateUser -> User not found",
+                userDetails.getId()
             ))
         );
 
@@ -419,7 +438,8 @@ public class UserService {
 
                 throw new IllegalActionException(ErrorFactory.create(
 
-                    ErrorCode.ILLEGAL_ACTION_SAME_PASSWORD, "UserService::updateUser -> New password is equal to old password"
+                    ErrorCode.ILLEGAL_ACTION_SAME_PASSWORD,
+                    "UserService::updateUser -> New password is equal to old password"
                 ));
             }
 
@@ -452,14 +472,7 @@ public class UserService {
 
         if(userDetails.getRole() != null) {
 
-            sessionService.check(
-
-                session.getId(),
-                Action.CHANGE_ROLE_OTHERS.getAllowedRoles(),
-                user.getRole(),
-                "Cannot change the role"
-            );
-
+            sessionService.check(session.getId(), Action.CHANGE_ROLE_OTHERS.getAllowedRoles(), user.getRole(), "Cannot change the role");
             user.setRole(userDetails.getRole());
 
             userChanged = true;
@@ -533,7 +546,9 @@ public class UserService {
 
             new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::deleteUser -> User not found", id
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::deleteUser -> User not found",
+                id
             ))
         );
 
@@ -560,7 +575,9 @@ public class UserService {
 
             throw new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::startForgotPassword -> User not found", user
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::startForgotPassword -> User not found",
+                user
             ));
         }
 
@@ -589,7 +606,9 @@ public class UserService {
 
             throw new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "UserService::endForgotPassword -> User not found", username
+                ErrorCode.USER_NOT_FOUND,
+                "UserService::endForgotPassword -> User not found",
+                username
             ));
         }
 
@@ -613,6 +632,7 @@ public class UserService {
 
                 subscription.getId(),
                 subscription.getPublisher().getId(),
+                subscription.getSubscriber().getId(),
                 subscription.isNotify(),
                 subscription.getCreatedAt(),
                 subscription.getUpdatedAt()
@@ -627,6 +647,7 @@ public class UserService {
             privateMode ? user.getEmail() : null,
             user.getProfilePicture() != null ? Base64.getEncoder().encodeToString(user.getProfilePicture()) : null,
             user.getAbout(),
+            privateMode ? user.getPreferences() : null,
             user.getRole(),
             privateMode ? user.getFailedAccesses() : null,
             privateMode ? user.getLockedUntil() : null,
@@ -652,6 +673,7 @@ public class UserService {
             user.getEmail(),
             null,
             null,
+            null,
             user.getRole(),
             user.getFailedAccesses(),
             user.getLockedUntil(),
@@ -673,7 +695,8 @@ public class UserService {
 
             throw new IllegalActionException(ErrorFactory.create(
 
-                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the password of others"
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
+                "UserService::updateUser -> Cannot change the password of others"
             ));
         }
 
@@ -681,7 +704,8 @@ public class UserService {
 
             throw new IllegalActionException(ErrorFactory.create(
 
-                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the email of others"
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
+                "UserService::updateUser -> Cannot change the email of others"
             ));
         }
 
@@ -689,7 +713,8 @@ public class UserService {
 
             throw new IllegalActionException(ErrorFactory.create(
 
-                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER, "UserService::updateUser -> Cannot change the about of others"
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
+                "UserService::updateUser -> Cannot change the about of others"
             ));
         }
 
@@ -697,7 +722,8 @@ public class UserService {
 
             throw new IllegalActionException(ErrorFactory.create(
 
-                ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the role of self"
+                ErrorCode.ILLEGAL_ACTION_SAME_USER,
+                "UserService::updateUser -> Cannot change the role of self"
             ));
         }
 
@@ -705,7 +731,8 @@ public class UserService {
 
             throw new IllegalActionException(ErrorFactory.create(
 
-                ErrorCode.ILLEGAL_ACTION_SAME_USER, "UserService::updateUser -> Cannot change the lock date of self"
+                ErrorCode.ILLEGAL_ACTION_SAME_USER,
+                "UserService::updateUser -> Cannot change the lock date of self"
             ));
         }
     }

@@ -1,6 +1,9 @@
 package io.github.clamentos.grapher.auth.business.services;
 
 ///
+import io.github.clamentos.grapher.auth.business.communication.events.AuthRequest;
+
+///..
 import io.github.clamentos.grapher.auth.error.ErrorCode;
 import io.github.clamentos.grapher.auth.error.ErrorFactory;
 
@@ -217,6 +220,7 @@ public class ValidatorService {
 
             if(userDetails.getEmail() == null) userDetails.setEmail("");
             if(userDetails.getAbout() == null) userDetails.setAbout("");
+            if(userDetails.getPreferences() == null) userDetails.setPreferences("");
 
             if(userDetails.getProfilePicture() != null && userDetails.getProfilePicture().length() > maxImageSize) {
 
@@ -287,9 +291,15 @@ public class ValidatorService {
         this.requireNotNull(subscription, "subscription");
         this.requireNull(subscription.getId(), "subscription.id");
         this.requireNotNull(subscription.getPublisher(), "subscription.publisher");
+        this.requireNull(subscription.getSubscriber(), "subscription.subscriber");
         this.requireNotNull(subscription.getNotify(), "subscription.notify");
         this.requireNull(subscription.getCreatedAt(), "subscription.createdAt");
         this.requireNull(subscription.getUpdatedAt(), "subscription.updatedAt");
+
+        if(subscription.getPublisher().equals(subscription.getSubscriber())) {
+
+            throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_DIFFERENT, "", ""));
+        }
     }
 
     ///..
@@ -308,6 +318,7 @@ public class ValidatorService {
             this.requireNotNull(subscription, PREFIX + i + "].subscription");
             this.requireNotNull(subscription.getId(), PREFIX + i + "].id");
             this.requireNull(subscription.getPublisher(), PREFIX + i + "].publisher");
+            this.requireNull(subscription.getSubscriber(), PREFIX + i + "].subscriber");
             this.requireNull(subscription.getCreatedAt(), PREFIX + i + "].createdAt");
             this.requireNull(subscription.getUpdatedAt(), PREFIX + i + "].updatedAt");
 
@@ -378,6 +389,19 @@ public class ValidatorService {
         this.requireNotNull(forgotPassword, "forgotPassword");
         this.requireFilled(forgotPassword.getForgotPasswordSessionId(), "forgotPassword.forgotPasswordSessionId");
         this.validatePassword(forgotPassword.getPassword(), "forgotPassword.password");
+    }
+
+    ///..
+    /**
+     * Validates the provided authorization request broker event.
+     * @param authRequest : The event to validate.
+     * @throws IllegalArgumentException If {@code authRequest} doesn't pass validation.
+    */
+    public void validateAuthRequestEvent(AuthRequest authRequest) throws IllegalArgumentException {
+
+        this.requireNotNull(authRequest, "authRequest");
+        this.requireNotNull(authRequest.getSessionId(), "authRequest.sessionId");
+        this.requireNotNull(authRequest.getRequiredRoles(), "authRequest.requiredRoles");
     }
 
     ///

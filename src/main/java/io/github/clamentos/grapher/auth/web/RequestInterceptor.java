@@ -93,15 +93,15 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             throw new ServiceUnavailableException(ErrorFactory.create(
 
-                ErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
-                "Service is temporary unavailable",
-                readiness.getDownDuration()
+                ErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE, "Service is temporary unavailable", readiness.getDownDuration()
             ));
         }
 
         String uri = (String)request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String key = request.getMethod() + uri;
-        String header = request.getHeader("Authorization");
+        String header = request.getHeader("Cookie");
+
+        if(header != null && header.length() > 16) header = header.substring(16);
 
         if(authenticationOptionalPaths.contains(key)) {
 

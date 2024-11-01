@@ -25,11 +25,22 @@ import lombok.Getter;
 public enum Action {
 
     ///
+    /** Must have {@code ADMINISTRATOR} role.*/
     CREATE_OTHERS(Set.of(UserRole.ADMINISTRATOR)),
+
+    /** Must have {@code MODERATOR}, {@code ADMINISTRATOR} role.*/
     SEARCH_USERS(Set.of(UserRole.MODERATOR, UserRole.ADMINISTRATOR)),
+
+    /** Must have {@code MODERATOR}, {@code ADMINISTRATOR} role.*/
     SEE_PRIVATE_OTHERS(Set.of(UserRole.MODERATOR, UserRole.ADMINISTRATOR)),
+
+    /** Must have {@code MODERATOR}, {@code ADMINISTRATOR} role.*/
     CHANGE_ROLE_OTHERS(Set.of(UserRole.MODERATOR, UserRole.ADMINISTRATOR)),
+
+    /** Must have {@code MODERATOR}, {@code ADMINISTRATOR} role.*/
     CHANGE_LOCK_DATE_OTHERS(Set.of(UserRole.MODERATOR, UserRole.ADMINISTRATOR)),
+
+    /** Must have {@code ADMINISTRATOR} role.*/
     DELETE_OTHERS(Set.of(UserRole.ADMINISTRATOR));
 
     ///

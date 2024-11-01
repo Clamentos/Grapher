@@ -32,12 +32,12 @@ import lombok.Setter;
 */
 
 ///
+@Entity
+@Table(name = "GRAPHER_USER")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
-@Table(name = "GRAPHER_USER")
 
 ///
 public class User {
@@ -45,14 +45,15 @@ public class User {
     ///
     public static final String COLUMNS =
 
-        "id,username,password,email,profile_picture,about,role,failed_accesses,locked_until," +
+        "id,username,password,email,profile_picture,about,preferences,role,failed_accesses,locked_until," +
         "lock_reason,password_last_changed_at,created_at,created_by,updated_at,updated_by"
     ;
 
     public static final String TABLE_NAME = "GRAPHER_USER";
 
     ///.
-    @Id @Column(name = "id")
+    @Id
+    @Column(name = "id")
     @GeneratedValue(generator = "grapher_user_id_seq", strategy = GenerationType.SEQUENCE)
     @SequenceGenerator(name = "grapher_user_id_seq", sequenceName = "grapher_user_id_seq", allocationSize = 1)
     private long id;
@@ -71,6 +72,9 @@ public class User {
 
     @Column(name = "about")
     private String about;
+
+    @Column(name = "preferences")
+    private String preferences;
 
     @Column(name = "role")
     @Enumerated(EnumType.STRING)
@@ -115,6 +119,7 @@ public class User {
      * @param email : The email.
      * @param profilePicture : The profile picture.
      * @param about : The about text.
+     * @param preferences : The account preferences.
      * @param creator : The username of the creator.
      * @apiNote Some fields are populated with the following values:
      * <ul>
@@ -122,7 +127,7 @@ public class User {
      *   <li>{@link UserRole#getDefault} as the role.</li>
      * </ul>
     */
-    public User(String username, String password, String email, byte[] profilePicture, String about, String creator) {
+    public User(String username, String password, String email, byte[] profilePicture, String about, String preferences, String creator) {
 
         long now = System.currentTimeMillis();
 
@@ -131,6 +136,7 @@ public class User {
         this.email = email;
         this.profilePicture = profilePicture;
         this.about = about;
+        this.preferences = preferences;
 
         role = UserRole.getDefault();
         failedAccesses = 0;

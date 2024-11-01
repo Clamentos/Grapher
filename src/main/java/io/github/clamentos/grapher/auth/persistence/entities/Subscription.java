@@ -24,12 +24,12 @@ import lombok.Setter;
 */
 
 ///
+@Entity
+@Table(name = "SUBSCRIPTION")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
-@Table(name = "SUBSCRIPTION")
 
 ///
 public class Subscription {
@@ -39,7 +39,8 @@ public class Subscription {
     public static final String TABLE_NAME = "SUBSCRIPTION";
 
     ///.
-    @Id @Column(name = "id")
+    @Id
+    @Column(name = "id")
     @GeneratedValue(generator = "subscription_id_seq", strategy = GenerationType.SEQUENCE)
     @SequenceGenerator(name = "subscription_id_seq", sequenceName = "subscription_id_seq", allocationSize = 1)
     private long id;

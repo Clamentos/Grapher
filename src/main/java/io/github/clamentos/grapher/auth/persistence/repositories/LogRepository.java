@@ -35,6 +35,14 @@ public interface LogRepository extends JpaRepository<Log, Long> {
 
     ///
     /**
+     * @return The never {@code null} total count by level.
+     * Each element in the list is a record, which is composed of level and count.
+    */
+    @Query(value = "SELECT l.level, COUNT(1) FROM Log AS l GROUP BY l.level")
+    List<Object[]> countGroupByLevels();
+
+    ///..
+    /**
      * Finds All the logs that match the specified filter.
      * @param timestampStart : The log timestamp start.
      * @param timestampEnd : The log timestamp end.

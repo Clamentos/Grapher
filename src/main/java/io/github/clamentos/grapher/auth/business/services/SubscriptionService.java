@@ -30,9 +30,9 @@ import jakarta.persistence.EntityNotFoundException;
 
 ///.
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 ///..
 import java.util.function.Function;
@@ -67,6 +67,8 @@ public class SubscriptionService {
     ///
     private final AuditRepository auditRepository;
     private final SubscriptionRepository subscriptionRepository;
+
+    ///..
     private final UserRepository userRepository;
     private final ValidatorService validatorService;
 
@@ -108,7 +110,9 @@ public class SubscriptionService {
 
             new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "SubscriptionService::subscribe -> Subscriber not found", session.getUserId()
+                ErrorCode.USER_NOT_FOUND,
+                "SubscriptionService::subscribe -> Subscriber not found",
+                session.getUserId()
             ))
         );
 
@@ -116,7 +120,9 @@ public class SubscriptionService {
 
             new EntityNotFoundException(ErrorFactory.create(
 
-                ErrorCode.USER_NOT_FOUND, "SubscriptionService::subscribe -> Publisher not found", subscription.getPublisher()
+                ErrorCode.USER_NOT_FOUND,
+                "SubscriptionService::subscribe -> Publisher not found",
+                subscription.getPublisher()
             ))
         );
 
@@ -133,7 +139,7 @@ public class SubscriptionService {
         long now = System.currentTimeMillis();
 
         Subscription subscriptionEntity = subscriptionRepository.save(
-            
+
             new Subscription(publisher, subscriber, subscription.getNotify(), now)
         );
 
@@ -151,14 +157,14 @@ public class SubscriptionService {
      * @throws NullPointerException If {@code session} is {@code null}.
     */
     @Transactional
-    public void toggleNotifications(Session session, Collection<SubscriptionDto> subscriptions)
+    public void toggleNotifications(Session session, Set<SubscriptionDto> subscriptions)
     throws DataAccessException, EntityNotFoundException, IllegalArgumentException, NullPointerException {
 
         validatorService.validateSubscriptions(subscriptions);
 
         Map<Long, Subscription> fetchedSubscriptions = subscriptionRepository.findAllByIdsAndUser(
 
-            subscriptions.stream().map(e -> e.getId()).toList(),
+            subscriptions.stream().map(SubscriptionDto::getId).toList(),
             session.getUserId()
         )
         .stream()
@@ -201,7 +207,7 @@ public class SubscriptionService {
      * @throws NullPointerException If {@code session} is {@code null}.
     */
     @Transactional
-    public void unsubscribe(Session session, List<Long> subscriptionIds)
+    public void unsubscribe(Session session, Set<Long> subscriptionIds)
     throws DataAccessException, IllegalArgumentException, NullPointerException {
 
         validatorService.requireFullyFilled(subscriptionIds, "body", "id");

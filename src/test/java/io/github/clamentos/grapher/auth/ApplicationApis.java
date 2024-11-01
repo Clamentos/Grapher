@@ -40,21 +40,21 @@ public final class ApplicationApis {
     ///..
     public MockHttpServletResponse logout(String baseUrl, String sessionId) throws Exception {
 
-        var builder = MockMvcRequestBuilders.delete(baseUrl + "/logout").header("Authorization", sessionId);
+        var builder = MockMvcRequestBuilders.delete(baseUrl + "/logout").header("Cookie", "sessionIdCookie=" + sessionId);
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 
     ///..
     public MockHttpServletResponse logoutAll(String baseUrl, String sessionId) throws Exception {
 
-        var builder = MockMvcRequestBuilders.delete(baseUrl + "/logout/all").header("Authorization", sessionId);
+        var builder = MockMvcRequestBuilders.delete(baseUrl + "/logout/all").header("Cookie", "sessionIdCookie=" + sessionId);
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 
     ///..
     public MockHttpServletResponse getById(String baseUrl, String sessionId, long id) throws Exception {
 
-        var builder = MockMvcRequestBuilders.get(baseUrl + "/" + id).header("Authorization", sessionId);
+        var builder = MockMvcRequestBuilders.get(baseUrl + "/" + id).header("Cookie", "sessionIdCookie=" + sessionId);
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 
@@ -64,7 +64,7 @@ public final class ApplicationApis {
         var builder = MockMvcRequestBuilders
 
             .get(baseUrl + "/search")
-            .header("Authorization", sessionId)
+            .header("Cookie", "sessionIdCookie=" + sessionId)
             .contentType("application/json")
             .content(json)
         ;
@@ -75,14 +75,14 @@ public final class ApplicationApis {
     ///..
     public MockHttpServletResponse deleteUser(String baseUrl, String sessionId, long id) throws Exception {
 
-        var builder = MockMvcRequestBuilders.delete(baseUrl + "/" + id).header("Authorization", sessionId);
+        var builder = MockMvcRequestBuilders.delete(baseUrl + "/" + id).header("Cookie", "sessionIdCookie=" + sessionId);
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 
     ///..
     public MockHttpServletResponse getStatus(String baseUrl, String sessionId) throws Exception {
 
-        var builder = MockMvcRequestBuilders.get(baseUrl + "/status").header("Authorization", sessionId);
+        var builder = MockMvcRequestBuilders.get(baseUrl + "/status").header("Cookie", "sessionIdCookie=" + sessionId);
         return(mockMvc.perform(builder).andReturn().getResponse());
     }
 

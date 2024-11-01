@@ -91,6 +91,7 @@
 					</excludes>
 
 					<jvmArguments>
+						-noverify
 						-Xmx2147483648
 						-XX:+UseG1GC
 						-XX:+UseStringDeduplication

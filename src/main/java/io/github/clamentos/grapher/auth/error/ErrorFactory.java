@@ -1,17 +1,20 @@
 package io.github.clamentos.grapher.auth.error;
 
 ///
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+///
 /**
  * <h3>Error Factory</h3>
  * Static class dedicated to constructing parametrized exception detail messages.
 */
 
 ///
-public final class ErrorFactory {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 
-    ///
-    // Forbids instantiation.
-    private ErrorFactory() {}
+///
+public final class ErrorFactory {
 
     ///
     /**
@@ -31,9 +34,12 @@ public final class ErrorFactory {
         stringBuilder.append(message);
         stringBuilder.append("/");
 
-        for(Object arg : args) stringBuilder.append(arg).append("/");
-        stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        for(Object arg : args) {
 
+            stringBuilder.append(arg).append("/");
+        }
+
+        stringBuilder.deleteCharAt(stringBuilder.length() - 1);
         return(stringBuilder.toString());
     }
 

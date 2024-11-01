@@ -47,6 +47,7 @@ CREATE TABLE GRAPHER_USER (
     email                       TEXT NOT NULL,
     profile_picture             BYTEA NULL,
     about                       TEXT NOT NULL,
+    preferences                 TEXT NOT NULL,
     role                        TEXT NOT NULL,
     failed_accesses             SMALLINT NOT NULL,
     locked_until                BIGINT NOT NULL,

@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 ///
 /**
  * <h3>Producer</h3>
- * Spring {@link Component} dedicated to send auth responses to the other microservices.
+ * Spring {@link Component} dedicated to send events the other microservices via the message broker.
 */
 
 ///
@@ -52,15 +52,22 @@ public class Producer {
     */
     public void respondToAuthRequest(String destination, AuthResponse authResponse) {
 
-        try { template.convertAndSend(destination, "", authResponse); }
-        catch(AmqpException exc) { log.error("Could not respond because: {}: {}", exc.getClass().getSimpleName(), exc.getMessage()); }
+        try {
+
+            template.convertAndSend(destination, "", authResponse);
+        }
+
+        catch(AmqpException exc) {
+
+            log.error("Could not respond because: {}: {}", exc.getClass().getSimpleName(), exc.getMessage());
+        }
     }
 
     ///..
     /**
      * Sends the provided forgot password event to the message microservice.
      * @param event : The target event to send.
-     * @throws AmqpException If any broker exception occurs.
+     * @throws AmqpException If any broker send error occurs.
     */
     public void sendForgotPasswordEvent(ForgotPasswordEvent event) throws AmqpException {
 
