@@ -33,7 +33,7 @@ import lombok.Setter;
 
 ///
 @Entity
-@Table(name = "GRAPHER_USER")
+@Table(name = "grapher_user")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

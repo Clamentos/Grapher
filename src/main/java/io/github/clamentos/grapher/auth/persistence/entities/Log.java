@@ -23,7 +23,7 @@ import lombok.Setter;
 
 ///
 @Entity
-@Table(name = "LOG")
+@Table(name = "log")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -36,7 +36,7 @@ public class Log {
     @Id
     @Column(name = "id")
     @GeneratedValue(generator = "log_id_seq", strategy = GenerationType.SEQUENCE)
-    @SequenceGenerator(name = "log_id_seq", sequenceName = "log_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "log_id_seq", sequenceName = "log_id_seq", allocationSize = 64)
     private long id;
 
     @Column(name = "timestamp")

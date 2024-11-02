@@ -93,7 +93,9 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             throw new ServiceUnavailableException(ErrorFactory.create(
 
-                ErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE, "Service is temporary unavailable", readiness.getDownDuration()
+                ErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+                "Service is temporary unavailable",
+                readiness.getDownDuration()
             ));
         }
 
@@ -101,13 +103,17 @@ public class RequestInterceptor implements HandlerInterceptor {
         String key = request.getMethod() + uri;
         String header = request.getHeader("Cookie");
 
-        if(header != null && header.length() > 16) header = header.substring(16);
+        if(header != null && header.length() > 16 && header.startsWith("sessionIdCookie")) {
+
+            header = header.substring(16);
+        }
 
         if(authenticationOptionalPaths.contains(key)) {
 
             request.setAttribute(
 
-                SESSION, header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
+                SESSION,
+                header != null ? sessionService.check(header, Set.of(), null, "Interceptor optional path check failed") : null
             );
         }
 
@@ -117,7 +123,8 @@ public class RequestInterceptor implements HandlerInterceptor {
 
                 request.setAttribute(
 
-                    SESSION, sessionService.check(header, authorizationMappings.get(key), null, "Not enough privileges to call this URL")
+                    SESSION,
+                    sessionService.check(header, authorizationMappings.get(key), null, "Not enough privileges to call this URL")
                 );
 
                 return(true);
@@ -125,7 +132,8 @@ public class RequestInterceptor implements HandlerInterceptor {
 
             throw new AuthenticationException(ErrorFactory.create(
 
-                ErrorCode.INVALID_AUTH_HEADER, "RequestInterceptor::preHandle -> Bad or missing auth header"
+                ErrorCode.INVALID_AUTH_HEADER,
+                "RequestInterceptor::preHandle -> Bad or missing auth header"
             ));
         }
 

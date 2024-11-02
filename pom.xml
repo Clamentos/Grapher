@@ -15,7 +15,7 @@
 
 	<groupId>io.github.clamentos.grapher</groupId>
 	<artifactId>auth</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>Auth Service</name>
 	<description>Auth service for Grapher</description>
 
@@ -41,8 +41,8 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
+			<groupId>org.mariadb.jdbc</groupId>
+			<artifactId>mariadb-java-client</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 
@@ -96,6 +96,8 @@
 						-XX:+UseG1GC
 						-XX:+UseStringDeduplication
 						-XX:-FlightRecorder
+						-XX:+AlwaysPreTouch
+						-XX:+UseTransparentHugePages
 					</jvmArguments>
 
 				</configuration>

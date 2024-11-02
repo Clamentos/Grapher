@@ -25,7 +25,7 @@ import lombok.Setter;
 
 ///
 @Entity
-@Table(name = "SUBSCRIPTION")
+@Table(name = "subscription")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

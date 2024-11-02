@@ -412,18 +412,7 @@ public class UserService {
         boolean isNotSelf = session.getUserId() != user.getId();
         long now = System.currentTimeMillis();
 
-        if(!isNotSelf && user.getLockedUntil() >= now) {
-
-            throw new AuthorizationException(ErrorFactory.create(
-
-                ErrorCode.USER_LOCKED,
-                "UserService::updateUser -> User is locked",
-                user.getLockedUntil(),
-                user.getLockReason()
-            ));
-        }
-
-        this.checkActionsForUpdate(userDetails, isNotSelf);
+        this.checkActionsForUpdate(userDetails, user, isNotSelf, now);
 
         boolean roleChanged = false;
         boolean userChanged = false;
@@ -432,7 +421,7 @@ public class UserService {
 
         if(userDetails.getPassword() != null) {
 
-            validatorService.validatePassword(userDetails.getPassword(), "password");
+            validatorService.validatePassword(userDetails.getPassword(), "userDetails.password");
 
             if(BCrypt.verifyer().verify(userDetails.getPassword().toCharArray(), user.getPassword()).verified) {
 
@@ -454,8 +443,7 @@ public class UserService {
 
         if(userDetails.getEmail() != null) {
 
-            validatorService.validateEmail(userDetails.getEmail(), "email");
-
+            validatorService.validateEmail(userDetails.getEmail(), "userDetails.email");
             user.setEmail(userDetails.getEmail());
 
             userChanged = true;
@@ -464,10 +452,20 @@ public class UserService {
 
         if(userDetails.getAbout() != null) {
 
+            validatorService.requireShorterThan(userDetails.getAbout(), 1024, "userDetails.about");
             user.setAbout(userDetails.getAbout());
 
             userChanged = true;
             updatedColumns.append("about,");
+        }
+
+        if(userDetails.getPreferences() != null) {
+
+            validatorService.requireShorterThan(userDetails.getPreferences(), 65536, "userDetails.preferences");
+            user.setPreferences(userDetails.getPreferences());
+
+            userChanged = true;
+            updatedColumns.append("preferences,");
         }
 
         if(userDetails.getRole() != null) {
@@ -491,7 +489,8 @@ public class UserService {
                 "Cannot change the lock date"
             );
 
-            validatorService.requireNotNull(userDetails.getLockReason(), "lockReason");
+            validatorService.requireNotNull(userDetails.getLockReason(), "userDetails.lockReason");
+            validatorService.requireShorterThan(userDetails.getLockReason(), 256, "userDetails.lockReason");
 
             user.setLockedUntil(userDetails.getLockedUntil());
             user.setLockReason(LockReason.CUSTOM.name() + "|" + userDetails.getLockReason());
@@ -689,14 +688,25 @@ public class UserService {
     }
 
     ///..
-    private void checkActionsForUpdate(UserDto userDto, boolean isNotSelf) throws IllegalActionException {
+    private void checkActionsForUpdate(UserDto userDto, User user, boolean isNotSelf, long now) throws IllegalActionException {
+
+        if(!isNotSelf && user.getLockedUntil() >= now) {
+
+            throw new AuthorizationException(ErrorFactory.create(
+
+                ErrorCode.USER_LOCKED,
+                "UserService::updateUser -> User is locked",
+                user.getLockedUntil(),
+                user.getLockReason()
+            ));
+        }
 
         if(userDto.getPassword() != null && isNotSelf) {
 
             throw new IllegalActionException(ErrorFactory.create(
 
                 ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
-                "UserService::updateUser -> Cannot change the password of others"
+                "UserService::checkActionsForUpdate -> Cannot change the password of others"
             ));
         }
 
@@ -705,7 +715,7 @@ public class UserService {
             throw new IllegalActionException(ErrorFactory.create(
 
                 ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
-                "UserService::updateUser -> Cannot change the email of others"
+                "UserService::checkActionsForUpdate -> Cannot change the email of others"
             ));
         }
 
@@ -714,7 +724,16 @@ public class UserService {
             throw new IllegalActionException(ErrorFactory.create(
 
                 ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
-                "UserService::updateUser -> Cannot change the about of others"
+                "UserService::checkActionsForUpdate -> Cannot change the about of others"
+            ));
+        }
+
+        if(userDto.getPreferences() != null && isNotSelf) {
+
+            throw new IllegalActionException(ErrorFactory.create(
+
+                ErrorCode.ILLEGAL_ACTION_DIFFERENT_USER,
+                "UserService::checkActionsForUpdate -> Cannot change the preferences of others"
             ));
         }
 
@@ -723,7 +742,7 @@ public class UserService {
             throw new IllegalActionException(ErrorFactory.create(
 
                 ErrorCode.ILLEGAL_ACTION_SAME_USER,
-                "UserService::updateUser -> Cannot change the role of self"
+                "UserService::checkActionsForUpdate -> Cannot change the role of self"
             ));
         }
 
@@ -732,7 +751,7 @@ public class UserService {
             throw new IllegalActionException(ErrorFactory.create(
 
                 ErrorCode.ILLEGAL_ACTION_SAME_USER,
-                "UserService::updateUser -> Cannot change the lock date of self"
+                "UserService::checkActionsForUpdate -> Cannot change the lock date of self"
             ));
         }
     }

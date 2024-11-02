@@ -1,83 +1,99 @@
-BEGIN TRANSACTION;
 
 ---
-DROP SCHEMA IF EXISTS "testing" CASCADE;
-CREATE SCHEMA IF NOT EXISTS "testing";
+USE grapher_auth_test;
+SET FOREIGN_KEY_CHECKS = 0;
 
 ---
-CREATE TABLE AUDIT (
+DROP SEQUENCE IF EXISTS audit_id_seq;
+CREATE SEQUENCE IF NOT EXISTS audit_id_seq START WITH 1 INCREMENT BY 1;
 
-    id                          BIGSERIAL PRIMARY KEY,
-    record_id                   BIGINT NOT NULL,
-    table_name                  TEXT NOT NULL,
-    columns                     TEXT NOT NULL,
-    action                      TEXT NOT NULL,
-    created_at                  BIGINT NOT NULL,
-    created_by                  TEXT NOT NULL
+DROP TABLE IF EXISTS audit;
+CREATE TABLE IF NOT EXISTS audit (
+
+    id                          BIGINT            PRIMARY KEY DEFAULT (NEXT VALUE FOR audit_id_seq),
+    record_id                   BIGINT            NOT NULL,
+    table_name                  VARCHAR(32)       NOT NULL,
+    columns                     VARCHAR(256)      NOT NULL,
+    action                      VARCHAR(16)       NOT NULL,
+    created_at                  BIGINT            NOT NULL,
+    created_by                  VARCHAR(32)       NOT NULL
 );
 
 ---..
-CREATE TABLE LOG (
+DROP SEQUENCE IF EXISTS log_id_seq;
+CREATE SEQUENCE IF NOT EXISTS log_id_seq START WITH 1 INCREMENT BY 64;
 
-    id                          BIGSERIAL PRIMARY KEY,
-    timestamp                   BIGINT NOT NULL,
-    level                       TEXT NOT NULL,
-    thread                      TEXT NOT NULL,
-    logger                      TEXT NOT NULL,
-    message                     TEXT NOT NULL,
-    created_at                  BIGINT NOT NULL
+DROP TABLE IF EXISTS log;
+CREATE TABLE IF NOT EXISTS log (
+
+    id                          BIGINT            PRIMARY KEY DEFAULT (NEXT VALUE FOR log_id_seq),
+    timestamp                   BIGINT            NOT NULL,
+    level                       VARCHAR(8)        NOT NULL,
+    thread                      VARCHAR(128)      NOT NULL,
+    logger                      VARCHAR(128)      NOT NULL,
+    message                     TEXT              NOT NULL,
+    created_at                  BIGINT            NOT NULL
 );
 
 ---..
-CREATE TABLE SESSION (
+DROP TABLE IF EXISTS session;
+CREATE TABLE IF NOT EXISTS session (
 
-    id                          TEXT PRIMARY KEY,
-    user_id                     BIGINT NOT NULL,
-    username                    TEXT NOT NULL,
-    user_role                   TEXT NOT NULL,
-    expires_at                  BIGINT NOT NULL
+    id                          VARCHAR(128)      PRIMARY KEY,
+    user_id                     BIGINT            NOT NULL,
+    username                    VARCHAR(32)       NOT NULL,
+    user_role                   VARCHAR(32)       NOT NULL,
+    expires_at                  BIGINT            NOT NULL
 );
 
 ---..
-CREATE TABLE GRAPHER_USER (
+DROP SEQUENCE IF EXISTS grapher_user_id_seq;
+CREATE SEQUENCE grapher_user_id_seq START WITH 1 INCREMENT BY 1;
 
-    id                          BIGSERIAL PRIMARY KEY,
-    username                    TEXT NOT NULL UNIQUE,
-    password                    TEXT NOT NULL,
-    email                       TEXT NOT NULL,
-    profile_picture             BYTEA NULL,
-    about                       TEXT NOT NULL,
-    preferences                 TEXT NOT NULL,
-    role                        TEXT NOT NULL,
-    failed_accesses             SMALLINT NOT NULL,
-    locked_until                BIGINT NOT NULL,
-    lock_reason                 TEXT NOT NULL,
-    password_last_changed_at    BIGINT NOT NULL,
-    created_at                  BIGINT NOT NULL,
-    created_by                  TEXT NOT NULL,
-    updated_at                  BIGINT NOT NULL,
-    updated_by                  TEXT NOT NULL
+DROP TABLE IF EXISTS grapher_user;
+CREATE TABLE IF NOT EXISTS grapher_user (
+
+    id                          BIGINT            PRIMARY KEY DEFAULT (NEXT VALUE FOR grapher_user_id_seq),
+    username                    VARCHAR(32)       NOT NULL UNIQUE,
+    password                    VARCHAR(128)      NOT NULL,
+    email                       VARCHAR(64)       NOT NULL,
+    profile_picture             MEDIUMBLOB            NULL,
+    about                       VARCHAR(1024)     NOT NULL,
+    preferences                 TEXT              NOT NULL,
+    role                        VARCHAR(32)       NOT NULL,
+    failed_accesses             SMALLINT          NOT NULL,
+    locked_until                BIGINT            NOT NULL,
+    lock_reason                 VARCHAR(256)      NOT NULL,
+    password_last_changed_at    BIGINT            NOT NULL,
+    created_at                  BIGINT            NOT NULL,
+    created_by                  VARCHAR(32)       NOT NULL,
+    updated_at                  BIGINT            NOT NULL,
+    updated_by                  VARCHAR(32)       NOT NULL
 );
 
 ---..
-CREATE TABLE SUBSCRIPTION (
+DROP SEQUENCE IF EXISTS subscription_id_seq;
+CREATE SEQUENCE subscription_id_seq START WITH 1 INCREMENT BY 1;
 
-    id                          BIGSERIAL PRIMARY KEY,
-    publisher                   BIGINT NOT NULL,
-    subscriber                  BIGINT NOT NULL,
-    notify                      BOOLEAN NOT NULL,
-    created_at                  BIGINT NOT NULL,
-    updated_at                  BIGINT NOT NULL,
+DROP TABLE IF EXISTS subscription;
+CREATE TABLE IF NOT EXISTS subscription (
+
+    id                          BIGINT            PRIMARY KEY DEFAULT (NEXT VALUE FOR subscription_id_seq),
+    publisher                   BIGINT            NOT NULL,
+    subscriber                  BIGINT            NOT NULL,
+    notify                      BOOLEAN           NOT NULL,
+    created_at                  BIGINT            NOT NULL,
+    updated_at                  BIGINT            NOT NULL,
 
     CONSTRAINT subscription_pub_sub_unique UNIQUE(publisher, subscriber),
-    CONSTRAINT publisher_fk FOREIGN KEY(publisher) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE,
-    CONSTRAINT subscriber_fk FOREIGN KEY(subscriber) REFERENCES GRAPHER_USER(id) ON DELETE CASCADE
+    CONSTRAINT publisher_fk FOREIGN KEY(publisher) REFERENCES grapher_user(id) ON DELETE CASCADE,
+    CONSTRAINT subscriber_fk FOREIGN KEY(subscriber) REFERENCES grapher_user(id) ON DELETE CASCADE
 );
 
 ---
-    INSERT INTO GRAPHER_USER (username,password,email,profile_picture,about,preferences,role,failed_accesses,locked_until,lock_reason,password_last_changed_at,created_at,created_by,updated_at,updated_by) VALUES ('TestAdminUser', '$2a$12$nMn/a2q4Q0RtaddC1/3.2e1rxEQDxvu79sbKF5BywyaCP8XhxiqKy', 'TestAdminUser@nonexistent.com', null, 'Im a testing admin user !', '', 'ADMINISTRATOR', 0, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, '', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, 'TestAdminUser', EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000, 'TestAdminUser');
+SET FOREIGN_KEY_CHECKS = 1;
 
 ---
-COMMIT;
+INSERT INTO grapher_user (username,password,email,profile_picture,about,preferences,role,failed_accesses,locked_until,lock_reason,password_last_changed_at,created_at,created_by,updated_at,updated_by) VALUES ('TestAdminUser', '$2a$12$nMn/a2q4Q0RtaddC1/3.2e1rxEQDxvu79sbKF5BywyaCP8XhxiqKy', 'TestAdminUser@nonexistent.com', null, 'Im a testing admin user !', '', 'ADMINISTRATOR', 0, UNIX_TIMESTAMP() * 1000, '', UNIX_TIMESTAMP() * 1000, UNIX_TIMESTAMP() * 1000, 'TestAdminUser', UNIX_TIMESTAMP() * 1000, 'TestAdminUser');
 
 ---

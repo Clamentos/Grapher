@@ -53,7 +53,7 @@ public class ValidatorService {
 
         usernamePattern = Pattern.compile("^[a-zA-Z0-9-_.]{3,32}$");
         emailPattern = Pattern.compile("^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$");
-        passwordPattern = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$");
+        passwordPattern = Pattern.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,64}$");
         maxImageSize = 275252; // ceil(256*256*3*1.4)
     }
 
@@ -151,6 +151,53 @@ public class ValidatorService {
 
     ///..
     /**
+     * Checks if the input string is longer than the specified maximum.
+     * @param str : The target string.
+     * @param size : The maximum size.
+     * @param name : The name of the string.
+     * @throws IllegalArgumentException If {@code str} is longer than {@code size}.
+     * @throws NullPointerException If {@code str} is {@code null}.
+    */
+    public void requireShorterThan(String str, int size, String name) throws IllegalArgumentException, NullPointerException {
+
+        if(str.length() > size)
+            throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_SHORTER, "", name, str.length(), size));
+    }
+
+    ///..
+    /**
+     * Checks if the input collection is bigger than the specified maximum.
+     * @param coll : The target collection.
+     * @param size : The maximum size.
+     * @param name : The name of the collection.
+     * @throws IllegalArgumentException If {@code coll} is longer than {@code size}.
+     * @throws NullPointerException If {@code coll} is {@code null}.
+    */
+    public void requireShorterThan(Collection<?> coll, int size, String name) throws IllegalArgumentException, NullPointerException {
+
+        if(coll.size() > size)
+            throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_SHORTER, "", name, coll.size(), size));
+    }
+
+    ///..
+    /**
+     * Checks if the specified comparable object is between the specified ranges.
+     * @param obj : The target comparable object.
+     * @param upper : The upper bound.
+     * @param lower : The lower bound.
+     * @param name : The name of the object.
+     * @throws IllegalArgumentException If {@code obj} is outside of the range.
+     * @throws NullPointerException If either {@code obj}, {@code upper} or {@code lower} are {@code null}.
+    */
+    public <T extends Comparable<T>> void requireBetween(T obj, T upper, T lower, String name)
+    throws IllegalArgumentException, NullPointerException {
+
+        if(obj.compareTo(upper) > 0 || obj.compareTo(lower) < 0)
+            throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_REQUIRE_BETWEEN, "", name, upper, lower));
+    }
+
+    ///..
+    /**
      * Validates a username with the following regex: ^[a-zA-Z0-9-_.]{3,32}$.
      * @param username : The target username.
      * @param name : The name of the field.
@@ -164,7 +211,7 @@ public class ValidatorService {
 
     ///..
     /**
-     * Validates a password with the following regex: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,32}$.
+     * Validates a password with the following regex: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=?!])(?=\\S+$).{10,64}$.
      * @param password : The target password.
      * @param name : The name of the field.
      * @throws IllegalArgumentException If {@code password} doesn't pass validation.
@@ -178,13 +225,14 @@ public class ValidatorService {
     ///..
     /**
      * Validates an email with the following regex: ^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$.
+     * Cannot be longer than 64 characters in total.
      * @param email : The target email.
      * @param name : The name of the field.
      * @throws IllegalArgumentException If {@code email} doesn't pass validation.
     */
     public void validateEmail(String email, String name) throws IllegalArgumentException {
 
-        if(email != null && email.length() > 0 && !emailPattern.matcher(email).matches())
+        if(email != null && email.length() > 0 && (email.length() > 64 || !emailPattern.matcher(email).matches()))
             throw new IllegalArgumentException(ErrorFactory.create(ErrorCode.VALIDATOR_BAD_EMAIL, "", name));
     }
 
@@ -216,22 +264,17 @@ public class ValidatorService {
             this.requireNull(userDetails.getRole(), "userDetails.role");
             this.requireNull(userDetails.getFailedAccesses(), "userDetails.failedAccesses");
             this.requireNull(userDetails.getLockedUntil(), "userDetails.lockedUntil");
+            this.requireNull(userDetails.getLockReason(), "userDetails.lockReason");
             this.requireNull(userDetails.getPasswordLastChangedAt(), "userDetails.passwordLastChangedAt");
 
             if(userDetails.getEmail() == null) userDetails.setEmail("");
             if(userDetails.getAbout() == null) userDetails.setAbout("");
+            if(userDetails.getProfilePicture() == null) userDetails.setProfilePicture("");
             if(userDetails.getPreferences() == null) userDetails.setPreferences("");
 
-            if(userDetails.getProfilePicture() != null && userDetails.getProfilePicture().length() > maxImageSize) {
-
-                throw new IllegalArgumentException(ErrorFactory.create(
-
-                    ErrorCode.VALIDATOR_IMAGE_TOO_LARGE,
-                    "ValidatorService::validateAndSanitize -> Profile picture too large",
-                    userDetails.getProfilePicture().length(),
-                    maxImageSize
-                ));
-            }
+            this.requireShorterThan(userDetails.getAbout(), 1024, "userDetails.about");
+            this.requireShorterThan(userDetails.getProfilePicture(), maxImageSize, "userDetails.profilePicture");
+            this.requireShorterThan(userDetails.getPreferences(), 65536, "userDetails.preferences");
         }
 
         this.requireNull(userDetails.getCreatedAt(), "userDetails.createdAt");
@@ -257,26 +300,28 @@ public class ValidatorService {
     ///..
     /**
      * Validates the provided user search filter.
-     * @param searchFilter : The target search filter.
+     * @param userSearchFilter : The target search filter.
      * @throws IllegalArgumentException If {@code searchFilter} doesn't pass validation.
     */
-    public void validateSearchFilter(UserSearchFilterDto searchFilter) throws IllegalArgumentException {
+    public void validateSearchFilter(UserSearchFilterDto userSearchFilter) throws IllegalArgumentException {
 
-        this.requireNotNull(searchFilter, "searchFilter");
-        this.requireNotNull(searchFilter.getPageNumber(), "searchFilter.pageNumber");
-        this.requireNotNull(searchFilter.getPageSize(), "searchFilter.pageSize");
+        this.requireNotNull(userSearchFilter, "userSearchFilter");
+        this.requireNotNull(userSearchFilter.getPageNumber(), "userSearchFilter.pageNumber");
+        this.requireBetween(userSearchFilter.getPageNumber(), 0, Integer.MAX_VALUE, "userSearchFilter.pageNumber");
+        this.requireNotNull(userSearchFilter.getPageSize(), "userSearchFilter.pageSize");
+        this.requireBetween(userSearchFilter.getPageNumber(), 1, 200, "userSearchFilter.pageSize");
 
-        if(searchFilter.getUsernameLike() == null && searchFilter.getEmailLike() == null) {
+        if(userSearchFilter.getUsernameLike() == null && userSearchFilter.getEmailLike() == null) {
 
-            this.requireFilled(searchFilter.getRoles(), "searchFilter.roles");
-            this.requireNotNull(searchFilter.getCreatedAtStart(), "searchFilter.createdAtStart");
-            this.requireNotNull(searchFilter.getCreatedAtEnd(), "searchFilter.createdAtEnd");
-            this.requireNullOrFilled(searchFilter.getCreatedByNames(), "searchFilter.createdBy");
-            this.requireNotNull(searchFilter.getUpdatedAtStart(), "searchFilter.updatedAtStart");
-            this.requireNotNull(searchFilter.getUpdatedAtEnd(), "searchFilter.updatedAtEnd");
-            this.requireNullOrFilled(searchFilter.getUpdatedByNames(), "searchFilter.updatedBy");
-            this.requireNullOrFilled(searchFilter.getSubscribedToNames(), "searchFilter.subscribedTo");
-            this.requireNotNull(searchFilter.getFailedAccesses(), "searchFilter.failedAccesses");
+            this.requireFilled(userSearchFilter.getRoles(), "userSearchFilter.roles");
+            this.requireNotNull(userSearchFilter.getCreatedAtStart(), "userSearchFilter.createdAtStart");
+            this.requireNotNull(userSearchFilter.getCreatedAtEnd(), "userSearchFilter.createdAtEnd");
+            this.requireNullOrFilled(userSearchFilter.getCreatedByNames(), "userSearchFilter.createdBy");
+            this.requireNotNull(userSearchFilter.getUpdatedAtStart(), "userSearchFilter.updatedAtStart");
+            this.requireNotNull(userSearchFilter.getUpdatedAtEnd(), "userSearchFilter.updatedAtEnd");
+            this.requireNullOrFilled(userSearchFilter.getUpdatedByNames(), "userSearchFilter.updatedBy");
+            this.requireNullOrFilled(userSearchFilter.getSubscribedToNames(), "userSearchFilter.subscribedTo");
+            this.requireNotNull(userSearchFilter.getFailedAccesses(), "userSearchFilter.failedAccesses");
         }
     }
 
@@ -336,7 +381,9 @@ public class ValidatorService {
 
         this.requireNotNull(auditSearchFilter, "auditSearchFilter");
         this.requireNotNull(auditSearchFilter.getPageNumber(), "auditSearchFilter.pageNumber");
+        this.requireBetween(auditSearchFilter.getPageNumber(), 0, Integer.MAX_VALUE, "auditSearchFilter.pageNumber");
         this.requireNotNull(auditSearchFilter.getPageSize(), "auditSearchFilter.pageSize");
+        this.requireBetween(auditSearchFilter.getPageNumber(), 1, 1000, "auditSearchFilter.pageSize");
         this.requireFilled(auditSearchFilter.getTableNames(), "auditSearchFilter.tableNames");
         this.requireFilled(auditSearchFilter.getAuditActions(), "auditSearchFilter.auditActions");
         this.requireNotNull(auditSearchFilter.getCreatedAtStart(), "auditSearchFilter.createdAtStart");
@@ -354,7 +401,9 @@ public class ValidatorService {
 
         this.requireNotNull(logSearchFilter, "logSearchFilter");
         this.requireNotNull(logSearchFilter.getPageNumber(), "logSearchFilter.pageNumber");
+        this.requireBetween(logSearchFilter.getPageNumber(), 0, Integer.MAX_VALUE, "logSearchFilter.pageNumber");
         this.requireNotNull(logSearchFilter.getPageSize(), "logSearchFilter.pageSize");
+        this.requireBetween(logSearchFilter.getPageNumber(), 1, 500, "logSearchFilter.pageSize");
         this.requireNotNull(logSearchFilter.getTimestampStart(), "logSearchFilter.timestampStart");
         this.requireNotNull(logSearchFilter.getTimestampEnd(), "logSearchFilter.timestampEnd");
         this.requireFilled(logSearchFilter.getLevels(), "logSearchFilter.levels");
